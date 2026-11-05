@@ -16,7 +16,15 @@ from konten.common import (
     info,
     read_text_file,
 )
-from konten.llm import DEFAULT_EFFORT, DEFAULT_MODEL, EFFORTS, LLMClient, build_llm, has_api_key
+from konten.llm import (
+    DEFAULT_EFFORT,
+    DEFAULT_MODEL,
+    EFFORTS,
+    PROVIDERS,
+    LLMClient,
+    build_llm,
+    has_api_key,
+)
 
 EPILOG = """\
 Contoh:
@@ -26,18 +34,23 @@ Contoh:
   python -m konten kuis --materi konten/examples/materi_contoh.txt --jumlah 10 \\
       --tipe pilihan_ganda,benar_salah,isian,esai
 
-Mesin: --engine auto (default) memakai AI bila ANTHROPIC_API_KEY ada, selain itu template.
+Mesin: --engine auto (default) memakai AI bila ANTHROPIC_API_KEY atau GEMINI_API_KEY ada,
+selain itu template. Pilih penyedia AI dengan --provider anthropic|gemini.
 """
 
 
 def _common(p: argparse.ArgumentParser, default_out: str) -> None:
     g = p.add_argument_group("opsi umum")
     g.add_argument("--engine", choices=ENGINES, default="auto",
-                   help="auto = AI jika ANTHROPIC_API_KEY ada, selain itu template (default: auto)")
+                   help="auto = AI jika ANTHROPIC_API_KEY/GEMINI_API_KEY ada, selain itu template "
+                        "(default: auto)")
+    g.add_argument("--provider", choices=PROVIDERS, default=None,
+                   help="penyedia AI: anthropic (Claude) atau gemini (Google). auto = Claude "
+                        "jika key-nya ada, lalu Gemini (default: env OTOMASI_PROVIDER atau auto)")
     g.add_argument("--bahasa", choices=LANGS, default="id", help="bahasa output (default: id)")
     g.add_argument("--model", default=None,
-                   help=f"model Claude untuk mesin AI (default: env OTOMASI_MODEL atau "
-                        f"{DEFAULT_MODEL})")
+                   help=f"nama model AI (default: env OTOMASI_MODEL, atau {DEFAULT_MODEL} untuk Claude "
+                        "/ gemini-flash-latest untuk Gemini)")
     g.add_argument("--effort", choices=EFFORTS, default=None,
                    help=f"tingkat effort AI; lebih rendah = lebih hemat (default: env "
                         f"OTOMASI_EFFORT atau {DEFAULT_EFFORT})")
@@ -117,25 +130,26 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def resolve_engine(name: str) -> str:
+def resolve_engine(name: str, provider: str | None = None) -> str:
     if name == "auto":
-        return "ai" if has_api_key() else "template"
-    if name == "ai" and not has_api_key():
+        return "ai" if has_api_key(provider) else "template"
+    if name == "ai" and not has_api_key(provider):
         raise FatalError(
-            "--engine ai butuh ANTHROPIC_API_KEY. Set dulu: export ANTHROPIC_API_KEY=sk-ant-... "
-            "(Windows PowerShell: $env:ANTHROPIC_API_KEY=\"sk-ant-...\"), atau pakai "
-            "--engine template."
+            "--engine ai butuh API key. Set salah satu: export ANTHROPIC_API_KEY=sk-ant-... "
+            "(Claude) atau export GEMINI_API_KEY=... (Google Gemini). Windows PowerShell: "
+            "$env:GEMINI_API_KEY=\"...\". Atau pakai --engine template."
         )
     return name
 
 
 def make_llm(args: argparse.Namespace, client: Any = None) -> LLMClient | None:
-    engine = resolve_engine(args.engine)
+    engine = resolve_engine(args.engine, args.provider)
     if engine == "template":
         if args.engine == "auto":
-            info("ANTHROPIC_API_KEY tidak ditemukan -> memakai mesin TEMPLATE (offline).")
+            info("API key AI (ANTHROPIC_API_KEY / GEMINI_API_KEY) tidak ditemukan -> memakai "
+                 "mesin TEMPLATE (offline).")
         return None
-    return build_llm(args.model, args.effort, client=client)
+    return build_llm(args.model, args.effort, client=client, provider=args.provider)
 
 
 def main(argv: list[str] | None = None, *, client: Any = None) -> int:

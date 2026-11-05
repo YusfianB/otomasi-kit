@@ -1,7 +1,8 @@
 # Generator konten sosial media terjadwal (mingguan) + bisa dijalankan manual.
 #
-# - Bila secret ANTHROPIC_API_KEY diset (Settings -> Secrets and variables -> Actions),
-#   konten dibuat dengan Claude. Bila tidak, `--engine auto` jatuh ke template engine offline.
+# - Bila secret ANTHROPIC_API_KEY atau GEMINI_API_KEY diset (Settings -> Secrets and
+#   variables -> Actions), konten dibuat dengan AI (Claude diutamakan bila keduanya ada).
+#   Bila tidak ada, `--engine auto` jatuh ke template engine offline.
 # - Hasil diunggah sebagai artifact "konten-sosmed-<nomor run>" (tab Actions -> run -> Artifacts).
 name: Jadwal Konten Sosmed
 
@@ -54,10 +55,12 @@ jobs:
         env:
           # Kosong bila secret tidak diset -> di-unset di bawah agar mode template dipakai.
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          if [ -z "${ANTHROPIC_API_KEY}" ]; then
-            unset ANTHROPIC_API_KEY
-            echo "ANTHROPIC_API_KEY tidak diset -> memakai template engine (offline)."
+          if [ -z "${ANTHROPIC_API_KEY}" ]; then unset ANTHROPIC_API_KEY; fi
+          if [ -z "${GEMINI_API_KEY}" ]; then unset GEMINI_API_KEY; fi
+          if [ -z "${ANTHROPIC_API_KEY:-}${GEMINI_API_KEY:-}" ]; then
+            echo "Tidak ada API key AI -> memakai template engine (offline)."
           fi
           # Sesuaikan perintah ini bila opsi CLI konten berubah (lihat: python -m konten sosmed --help).
           python -m konten sosmed \

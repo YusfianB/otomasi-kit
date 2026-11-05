@@ -395,7 +395,7 @@ def generate_template(job: QuizJob) -> list[dict[str, Any]]:
     if not job.materi.strip():
         raise KontenError(
             "Mesin template butuh teks materi (--materi file.txt/.md/.pdf). Untuk membuat soal "
-            "hanya dari --topik, gunakan --engine ai (butuh ANTHROPIC_API_KEY)."
+            "hanya dari --topik, gunakan --engine ai (butuh ANTHROPIC_API_KEY atau GEMINI_API_KEY)."
         )
     lang = job.bahasa
     txt = T.KUIS_TEXT[lang]

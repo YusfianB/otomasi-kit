@@ -6,8 +6,8 @@ Subperintah:
 - produk : deskripsi produk marketplace (Shopee/Tokopedia) + copy promo WhatsApp
 - kuis   : bank soal dari materi (pilihan ganda, benar/salah, isian, esai)
 
-Dua mesin: ``ai`` (Anthropic API, butuh ANTHROPIC_API_KEY) dan ``template`` (offline,
-deterministik). Jalankan ``python -m konten --help``.
+Dua mesin: ``ai`` (Claude API atau Google Gemini, butuh ANTHROPIC_API_KEY atau
+GEMINI_API_KEY) dan ``template`` (offline, deterministik). Jalankan ``python -m konten --help``.
 """
 
 __version__ = "0.1.0"

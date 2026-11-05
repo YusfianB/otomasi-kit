@@ -12,13 +12,16 @@ Shopee/Tokopedia/TikTok Shop, dan kreator konten di Indonesia:
 
 Ada **dua mesin**:
 
-- **`ai`** — memakai Claude lewat Anthropic API (butuh `ANTHROPIC_API_KEY`). Hasil paling
-  bagus dan spesifik.
+- **`ai`** — memakai AI sungguhan. Pilih penyedianya:
+  - **Claude** (Anthropic API, butuh `ANTHROPIC_API_KEY`), atau
+  - **Google Gemini** (butuh `GEMINI_API_KEY`), lihat bagian 2b.
 - **`template`** — offline, gratis, deterministik (input sama → hasil sama). Memakai bank
   frasa Bahasa Indonesia. Cocok untuk mencoba alur kerja atau saat tidak ada API key. Setiap
   hasil diberi label `engine: template` dan log menulis `Mesin: TEMPLATE`.
 
-`--engine auto` (default) memakai AI bila `ANTHROPIC_API_KEY` tersedia, selain itu template.
+`--engine auto` (default) memakai AI bila `ANTHROPIC_API_KEY` atau `GEMINI_API_KEY` tersedia,
+selain itu template. Bila keduanya ada, Claude dipakai; paksa salah satu dengan
+`--provider gemini` / `--provider anthropic` (atau env `OTOMASI_PROVIDER`).
 
 ---
 
@@ -38,6 +41,8 @@ dari PDF) dan `python-docx` (soal dalam format Word). Jika keduanya tidak terpas
 tetap jalan dengan materi `.txt/.md` dan hasil Markdown saja.
 
 ## 2. Mengatur API key (mesin AI)
+
+### 2a. Claude (Anthropic)
 
 1. Buat API key di Claude Console: <https://platform.claude.com/settings/keys>
 2. Set sebagai variabel lingkungan (jangan ditulis di kode / jangan di-commit):
@@ -61,6 +66,38 @@ export OTOMASI_EFFORT="medium"           # low | medium | high | xhigh | max
 Pesan error dibuat jelas dalam Bahasa Indonesia, misalnya: key belum diset / tidak valid, model
 tidak ditemukan, kena rate limit (otomatis dicoba ulang dengan jeda), server sibuk, saldo
 habis, atau permintaan ditolak oleh filter keamanan model.
+
+### 2b. Google Gemini
+
+1. Buat API key di Google AI Studio: <https://aistudio.google.com/apikey>
+   (atau key Vertex AI dari Google Cloud Console).
+2. Set sebagai variabel lingkungan (jangan ditulis di kode / jangan di-commit):
+
+```bash
+# Linux / macOS
+export GEMINI_API_KEY="..."
+
+# Windows PowerShell
+$env:GEMINI_API_KEY="..."
+```
+
+3. Jalankan seperti biasa. Bila `ANTHROPIC_API_KEY` juga ada, tambahkan `--provider gemini`:
+
+```bash
+python -m konten sosmed --profil konten/examples/brand.yaml --jumlah 7 --provider gemini
+```
+
+| Pengaturan | Default | Keterangan |
+|---|---|---|
+| `--model` / `OTOMASI_MODEL` | `gemini-flash-latest` | Alias ke model Flash terbaru (cepat & murah). Lebih bagus: `--model gemini-pro-latest`. |
+| `GEMINI_ENDPOINT` | `auto` | `aistudio` (key Google AI Studio), `vertex` (key Vertex AI express mode), atau `auto`: coba AI Studio dulu, lalu Vertex AI bila key ditolak. |
+
+Catatan Gemini:
+- Endpoint `vertex` tidak mengenal alias `-latest`, jadi default-nya `gemini-2.5-flash`. Bila
+  muncul "Model tidak ditemukan", isi `--model` dengan nama model yang tersedia di akun Anda.
+- `--effort` hanya berlaku untuk Claude; untuk Gemini diabaikan.
+- Di akhir proses dicetak jumlah token; biaya dicek di Google AI Studio / Google Cloud Billing.
+- Hasil JSON dari Gemini divalidasi dan diminta ulang bila tidak sesuai, sama seperti Claude.
 
 ## 3. Pilihan model & catatan biaya
 

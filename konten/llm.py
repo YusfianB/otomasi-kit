@@ -100,8 +100,41 @@ def resolve_effort(cli_value: str | None) -> str:
     return effort
 
 
-def has_api_key() -> bool:
+PROVIDERS = ("auto", "anthropic", "gemini")
+
+
+def has_anthropic_key() -> bool:
     return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
+
+
+def has_gemini_key() -> bool:
+    return bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
+
+
+def resolve_provider(cli_value: str | None = None) -> str | None:
+    """Return 'anthropic' / 'gemini', or None when no usable API key is configured.
+
+    ``auto`` prefers Anthropic when both keys exist; force one with ``--provider`` or env
+    ``OTOMASI_PROVIDER``.
+    """
+    provider = (cli_value or os.environ.get("OTOMASI_PROVIDER") or "auto").strip().lower()
+    if provider not in PROVIDERS:
+        raise KontenError(
+            f"Provider AI tidak dikenal: {provider} (pilih: {', '.join(PROVIDERS)})"
+        )
+    if provider == "anthropic":
+        return "anthropic" if has_anthropic_key() else None
+    if provider == "gemini":
+        return "gemini" if has_gemini_key() else None
+    if has_anthropic_key():
+        return "anthropic"
+    if has_gemini_key():
+        return "gemini"
+    return None
+
+
+def has_api_key(provider: str | None = None) -> bool:
+    return resolve_provider(provider) is not None
 
 
 # --------------------------------------------------------------------------- schema validation
@@ -418,7 +451,7 @@ def make_anthropic_client(max_retries: int = 3, timeout: float = 600.0) -> Any:
         import anthropic
     except ImportError as exc:  # pragma: no cover
         raise FatalError("Paket 'anthropic' belum terpasang: pip install anthropic") from exc
-    if not has_api_key():
+    if not has_anthropic_key():
         raise FatalError(
             "ANTHROPIC_API_KEY belum diset. Set dulu, misalnya: export ANTHROPIC_API_KEY=sk-ant-... "
             "atau jalankan dengan --engine template untuk mode offline."
@@ -426,7 +459,24 @@ def make_anthropic_client(max_retries: int = 3, timeout: float = 600.0) -> Any:
     return anthropic.Anthropic(max_retries=max_retries, timeout=timeout)
 
 
-def build_llm(model: str | None, effort: str | None, client: Any = None) -> LLMClient:
+def build_llm(
+    model: str | None, effort: str | None, client: Any = None, provider: str | None = None
+) -> LLMClient:
+    """Build the AI client. ``client`` is an injected Anthropic client or, for Gemini, an
+    injected ``requests``-like session (used by tests)."""
+    chosen = resolve_provider(provider) or "anthropic"
+    if chosen == "gemini":
+        from konten.gemini import GeminiClient, default_model, resolve_endpoint
+
+        endpoint = resolve_endpoint()
+        env_model = os.environ.get("OTOMASI_MODEL", "")
+        if env_model.startswith("claude"):
+            env_model = ""  # a Claude model name makes no sense for Gemini
+        name = model or env_model or default_model(endpoint)
+        llm: LLMClient = GeminiClient(name, resolve_effort(effort), session=client,
+                                      endpoint=endpoint)
+        info(f"Mesin: AI (Google Gemini, model {llm.model}, endpoint {endpoint})")
+        return llm
     llm = LLMClient(resolve_model(model), resolve_effort(effort), client=client)
     info(f"Mesin: AI (Anthropic, model {llm.model}, effort {llm.effort})")
     return llm

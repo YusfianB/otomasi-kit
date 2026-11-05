@@ -32,12 +32,15 @@ python -m scraper --help
 python -m devtools --help
 ```
 
-Fitur AI di paket `konten` memakai Claude API. Isi `ANTHROPIC_API_KEY` (dari
-https://console.anthropic.com) agar hasilnya ditulis AI; tanpa key, otomatis memakai mode template.
+Fitur AI di paket `konten` bisa memakai **Claude** atau **Google Gemini**. Isi salah satu key
+agar hasilnya ditulis AI; tanpa key, otomatis memakai mode template.
 
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-..."   # Windows PowerShell: $env:ANTHROPIC_API_KEY="sk-ant-..."
+export ANTHROPIC_API_KEY="sk-ant-..."   # Claude (https://platform.claude.com/settings/keys)
+export GEMINI_API_KEY="..."             # Google Gemini (https://aistudio.google.com/apikey)
 ```
+
+Windows PowerShell: `$env:GEMINI_API_KEY="..."`. Detail: [konten/README.md](konten/README.md).
 
 ## Pengembangan
 

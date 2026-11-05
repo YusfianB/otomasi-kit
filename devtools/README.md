@@ -49,6 +49,7 @@ Catatan:
 | Secret | Wajib? | Dipakai oleh | Keterangan |
 |---|---|---|---|
 | `ANTHROPIC_API_KEY` | opsional | `jadwal-konten.yml` | Bila ada, konten dibuat dengan Claude. Bila tidak ada, `--engine auto` memakai template engine offline. |
+| `GEMINI_API_KEY` | opsional | `jadwal-konten.yml` | Bila ada (dan `ANTHROPIC_API_KEY` tidak ada), konten dibuat dengan Google Gemini. |
 
 Cara menambah secret: **Settings -> Secrets and variables -> Actions -> New repository secret**.
 `ci.yml` sengaja tidak memakai secret apa pun (tes konten memakai mock API), jadi PR dari fork

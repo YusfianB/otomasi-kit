@@ -47,4 +47,5 @@ jobs:
         env:
           # Pastikan tidak ada panggilan API sungguhan selama tes.
           ANTHROPIC_API_KEY: ""
+          GEMINI_API_KEY: ""
         run: pytest
