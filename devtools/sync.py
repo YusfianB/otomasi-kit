@@ -150,7 +150,7 @@ def sync_folders(config: SyncConfig, dry_run: bool = False) -> SyncSummary:
                     except OSError:
                         pass
 
-    log.info(summary.text())
+    log.debug(summary.text())
     return summary
 
 

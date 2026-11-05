@@ -66,6 +66,19 @@ def is_missing(value: Any) -> bool:
 
 # --------------------------------------------------------------------------- numbers
 
+MONEY_HINTS = (
+    "harga", "total", "subtotal", "omzet", "pendapatan", "gaji", "tunjangan", "potongan",
+    "biaya", "nominal", "bayar", "upah", "bonus", "pajak", "ppn", "pph", "diskon", "lembur",
+    "insentif", "bpjs", "revenue", "price", "amount", "rupiah", "saldo", "tagihan",
+)
+
+
+def is_money_column(name: str) -> bool:
+    lowered = str(name).lower()
+    return any(h in lowered for h in MONEY_HINTS)
+
+
+
 _CURRENCY_RE = re.compile(r"^(?:rp\.?|idr)\s*|\s*(?:rp\.?|idr)$", re.IGNORECASE)
 _MULTIPLIERS = {
     "rb": 1e3, "ribu": 1e3, "k": 1e3,

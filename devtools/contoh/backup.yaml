@@ -1,0 +1,48 @@
+# Contoh config backup & sync untuk devtools.
+#
+#   python -m devtools backup --config devtools/contoh/backup.yaml
+#   python -m devtools sync   --config devtools/contoh/backup.yaml --dry-run
+#
+# PENTING: path relatif dihitung dari FOLDER FILE CONFIG INI (devtools/contoh/),
+# bukan dari folder tempat perintah dijalankan. Jadi "../.." = root repo otomasi-kit.
+# Untuk cron / Task Scheduler sebaiknya pakai path absolut.
+# ~ dan $VARIABEL / %VARIABEL% di path akan diekspansi.
+
+backup:
+  nama: otomasi-kit            # awalan nama arsip -> otomasi-kit-20260101-020000.zip
+  sumber:
+    - ../..                    # root repo (boleh lebih dari satu folder/file)
+  tujuan: ../../backups        # folder arsip; otomatis dikecualikan bila ada di dalam sumber
+  format: zip                  # zip | tar.gz
+  include: []                  # kosong = semua file; contoh: ["*.py", "*.yaml"]
+  exclude:                     # ditambahkan ke pengecualian bawaan (.git, .venv, __pycache__, ...)
+    - output
+    - "*.log"
+    - "*.tmp"
+  default_exclude: true        # false = jangan pakai pengecualian bawaan
+  simpan: 7                    # rotasi: simpan 7 arsip terbaru
+  gfs:                         # retensi GFS (opsional, digabung dengan 'simpan')
+    harian: 7                  # arsip terbaru untuk masing-masing 7 hari terakhir
+    mingguan: 4                # ... 4 minggu terakhir
+    bulanan: 6                 # ... 6 bulan terakhir
+    # tahunan: 2
+  # database:                  # dump database sebelum diarsipkan (masuk folder _database/)
+  #   sqlite:
+  #     - ../../data/app.db    # pakai API backup sqlite3 bawaan Python (aman saat DB dipakai)
+  #   postgres:                # butuh 'pg_dump' di PATH; password lewat PGPASSWORD / ~/.pgpass
+  #     - dsn: postgresql://user@localhost:5432/toko
+  #       nama: toko
+  #   mysql:                   # butuh 'mysqldump' di PATH
+  #     - database: toko
+  #       user: backup
+  #       host: localhost
+  #       password_env: MYSQL_BACKUP_PASSWORD   # nama env var berisi password
+
+sync:
+  # Daftar job mirror satu arah. Arahkan 'tujuan' ke drive cloud yang di-mount
+  # (Google Drive for desktop, OneDrive, Dropbox, atau `rclone mount`) bila perlu.
+  - sumber: ../../backups
+    tujuan: ~/Backup-Cloud/otomasi-kit
+    hapus: false               # true = hapus file di tujuan yang sudah tidak ada di sumber
+    mode: ukuran               # ukuran (ukuran+waktu ubah, cepat) | hash (SHA-256, teliti)
+    exclude: ["*.partial"]
