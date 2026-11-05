@@ -37,10 +37,10 @@ class _Stream:
     def __init__(self, msg: Any) -> None:
         self._msg = msg
 
-    def __enter__(self) -> _Stream:
+    def __enter__(self):
         return self
 
-    def __exit__(self, *exc: Any) -> bool:
+    def __exit__(self, *exc: object) -> bool:
         return False
 
     def get_final_message(self) -> Any:
@@ -83,7 +83,7 @@ def task_text(params: dict) -> str:
 
 def sosmed_responder(params: dict, n: int) -> Any:
     text = prompt_text(params)
-    lo, hi = map(int, re.search(r"hashtags (\d+)-(\d+)", text).groups())
+    lo = int(re.search(r"hashtags (\d+)-(\d+)", text).group(1))
     platform = re.search(r"- platform: (.+)", text).group(1)
     video = "Video format" in text
     return message({

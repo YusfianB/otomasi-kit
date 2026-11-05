@@ -49,15 +49,23 @@ def _common(p: argparse.ArgumentParser, default_out: str) -> None:
                    help=f"folder output (default: {default_out})")
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="python -m konten",
-        description="Generator konten untuk UMKM, seller online, dan kreator Indonesia.",
-        epilog=EPILOG, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--version", action="version", version=f"konten {__version__}")
-    sub = parser.add_subparsers(dest="perintah", metavar="<subperintah>")
+def _localize(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    p._optionals.title = "opsi"
+    p._positionals.title = "argumen"
+    p.add_argument("-h", "--help", action="help", help="tampilkan bantuan ini lalu keluar")
+    return p
 
-    s = sub.add_parser("sosmed", help="kalender & caption media sosial",
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = _localize(argparse.ArgumentParser(
+        prog="python -m konten", add_help=False,
+        description="Generator konten untuk UMKM, seller online, dan kreator Indonesia.",
+        epilog=EPILOG, formatter_class=argparse.RawDescriptionHelpFormatter))
+    parser.add_argument("--version", action="version", version=f"konten {__version__}",
+                        help="tampilkan versi")
+    sub = parser.add_subparsers(dest="perintah", metavar="<subperintah>", title="subperintah")
+
+    s = sub.add_parser("sosmed", add_help=False, help="kalender & caption media sosial",
                        description="Buat kalender konten + caption, hashtag, CTA, ide visual, "
                                    "dan naskah video pendek per platform.")
     s.add_argument("--profil", help="file YAML profil brand (lihat konten/examples/brand.yaml)")
@@ -72,25 +80,28 @@ def build_parser() -> argparse.ArgumentParser:
                    help="harian | 2x-seminggu | 3x-seminggu | 5x-seminggu | mingguan | angka hari")
     s.add_argument("--produk", help="daftar produk dipisah ';'")
     s.add_argument("--promo", help="promo yang sedang berjalan")
-    _common(s, "hasil/sosmed")
+    _localize(s)
+    _common(s, "output/sosmed")
 
-    a = sub.add_parser("artikel", help="draf artikel SEO (tunggal atau batch)",
+    a = sub.add_parser("artikel", add_help=False, help="draf artikel SEO (tunggal atau batch)",
                        description="Riset kata kunci (estimasi), outline, draf artikel Markdown "
                                    "dengan front-matter, FAQ, dan saran tautan internal.")
     a.add_argument("--topik", help="satu topik/kata kunci utama")
     a.add_argument("--keywords", help="file CSV/XLSX berisi kolom 'keyword' (batch)")
     a.add_argument("--audiens", default="", help="target pembaca")
     a.add_argument("--panjang", type=int, default=1200, help="target jumlah kata (mesin AI)")
-    _common(a, "hasil/artikel")
+    _localize(a)
+    _common(a, "output/artikel")
 
-    p = sub.add_parser("produk", help="deskripsi produk Shopee/Tokopedia + promo WhatsApp",
+    p = sub.add_parser("produk", add_help=False, help="deskripsi produk Shopee/Tokopedia + promo WhatsApp",
                        description="Baca spreadsheet produk lalu tambahkan kolom judul, poin "
                                    "fitur, deskripsi, tag SEO, dan copy promo WhatsApp.")
     p.add_argument("--input", "-i", required=True, help="file CSV/XLSX daftar produk")
     p.add_argument("--tone", default="santai", help="santai | profesional (default: santai)")
-    _common(p, "hasil/produk")
+    _localize(p)
+    _common(p, "output/produk")
 
-    k = sub.add_parser("kuis", help="bank soal + kunci jawaban + export Quizizz/Forms",
+    k = sub.add_parser("kuis", add_help=False, help="bank soal + kunci jawaban + export Quizizz/Forms",
                        description="Buat soal dari materi (.txt/.md/.pdf) atau dari topik "
                                    "(khusus mesin AI).")
     k.add_argument("--materi", nargs="+", help="satu atau beberapa file materi (.txt/.md/.pdf)")
@@ -101,7 +112,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="pilihan_ganda,benar_salah,isian,esai (boleh beberapa, dipisah koma)")
     k.add_argument("--mapel", default="", help="mata pelajaran, mis. IPA")
     k.add_argument("--jenjang", default="", help="jenjang/kelas, mis. 'SMP kelas 8'")
-    _common(k, "hasil/kuis")
+    _localize(k)
+    _common(k, "output/kuis")
     return parser
 
 

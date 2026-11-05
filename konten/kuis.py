@@ -92,16 +92,26 @@ _ABBR = r"(?:dll|dsb|dst|dkk|yth|no|hlm|dr|ir|prof|drs|tn|ny|sdr|mis|kab|kec|jl|
 
 def split_sentences(text: str) -> list[str]:
     text = re.sub(r"```.*?```", " ", text, flags=re.DOTALL)
-    lines = []
+    lines: list[str] = []
+    soft_wrap = False  # previous line may continue on the next one (PDF / hard-wrapped text)
     for line in text.splitlines():
         line = line.strip()
         if not line or re.fullmatch(r"[-=*_#\s]+", line):
+            soft_wrap = False
             continue
         if line.startswith("#"):  # headings are context, not statements
+            soft_wrap = False
             continue
+        bullet = bool(re.match(r"^([-*•]|\d+[.)])\s+", line))
         line = re.sub(r"^([-*•]|\d+[.)])\s+", "", line)
         line = re.sub(r"[*_`]{1,3}([^*_`]+)[*_`]{1,3}", r"\1", line)
-        lines.append(line)
+        if soft_wrap and not bullet and lines:
+            lines[-1] = f"{lines[-1]} {line}"
+        else:
+            lines.append(line)
+        # A line that does not end a sentence is joined with the next line of the paragraph,
+        # except short title-like lines.
+        soft_wrap = not re.search(r"[.!?:;]$", line) and len(line.split()) > 6
     joined = "\n".join(lines)
     protected = re.sub(rf"\b({_ABBR})\.", r"\1<DOT>", joined, flags=re.IGNORECASE)
     protected = re.sub(r"(\d)\.(\d)", r"\1<DOT>\2", protected)
@@ -613,16 +623,20 @@ def generate_ai_chunk(llm: LLMClient, job: QuizJob, types: list[str],
 
     data = llm.generate_json(task_system=TASK_SYSTEM, prompt=content, schema=_schema(),
                              check=check, max_tokens=16000)
+    prefix = re.compile(r"^[A-Ea-e][.)]\s+")
     out = []
     for q in data["soal"]:
         q = {k: q[k] for k in ("tipe", "pertanyaan", "opsi", "jawaban", "penjelasan")}
         if q["tipe"] == "benar_salah":
             q["opsi"] = [txt["true"], txt["false"]]
         if q["tipe"] == "pilihan_ganda" and q["jawaban"] not in q["opsi"]:
+            warn(f"Soal dibuang karena kunci tidak cocok dengan opsi: {q['pertanyaan'][:60]}")
             continue  # unrecoverable after retries; drop rather than ship a wrong key
         if q["tipe"] in ("isian", "esai"):
             q["opsi"] = []
-        q["opsi"] = [re.sub(r"^[A-Ea-e][.)]\s+", "", o) for o in q["opsi"]]
+        if q["tipe"] == "pilihan_ganda":
+            q["opsi"] = [prefix.sub("", o) for o in q["opsi"]]
+            q["jawaban"] = prefix.sub("", q["jawaban"])
         out.append(q)
     return out
 

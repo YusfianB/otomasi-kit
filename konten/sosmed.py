@@ -229,6 +229,8 @@ def plan(brief: Brief) -> list[dict[str, Any]]:
              "produk2": "x" if len(produk) > 1 else "", "promo": brief.promo,
              "lokasi": brief.lokasi, "link_cta": "x"}
     slots: list[dict[str, Any]] = []
+    signatures: set[tuple] = set()  # across platforms: no two slots may resolve identically
+    topic_uses: dict[str, int] = {}
     for p_index, platform in enumerate(brief.platforms):
         pillars = [p for p in PILAR_ROTATION
                    if not (p == "hiburan" and (formal_tone or platform == "linkedin"))]
@@ -268,6 +270,21 @@ def plan(brief: Brief) -> list[dict[str, Any]]:
                 if edu_count % 2 == 0:  # every other education post covers a client topic
                     user_topik = pick("user-topik", brief.topik)
                 edu_count += 1
+            hook_opts = fillable(pb, "hook", allowed_variants(pb, "hook", body_i))
+            cta_opts = list(range(len(pb["cta"])))
+            hook_i = least_used(f"hook-{pilar}", hook_opts)
+            cta_i = least_used(f"cta-{pilar}", cta_opts)
+            topik_body_i = topic_uses.get(user_topik, 0)
+            if user_topik:
+                topic_uses[user_topik] = topik_body_i + 1
+            for attempt in range(len(hook_opts) * len(cta_opts)):
+                sig = (pilar, body_i, hook_i, cta_i, p1, k1, user_topik, topik_body_i)
+                if sig not in signatures:
+                    break
+                cta_i = cta_opts[(cta_opts.index(cta_i) + 1) % len(cta_opts)]
+                if attempt % len(cta_opts) == len(cta_opts) - 1:
+                    hook_i = hook_opts[(hook_opts.index(hook_i) + 1) % len(hook_opts)]
+            signatures.add(sig)
             slots.append({
                 "no": len(slots) + 1,
                 "tanggal": day.isoformat(),
@@ -280,18 +297,40 @@ def plan(brief: Brief) -> list[dict[str, Any]]:
                 "keunggulan2": rng.choice(k_others) if k_others else "",
                 "masalah": pick("masalah", masalah),
                 "body_i": body_i,
-                "hook_i": least_used(f"hook-{pilar}", fillable(
-                    pb, "hook", allowed_variants(pb, "hook", body_i))),
+                "hook_i": hook_i,
                 "visual_i": least_used(f"visual-{pilar}", allowed_variants(pb, "visual", body_i)),
                 "topik_i": least_used(f"topik-{pilar}", fillable(
                     pb, "topik", allowed_variants(pb, "topik", body_i))),
                 "pendek_i": least_used(f"pendek-{pilar}", fillable(
                     pb, "pendek", list(range(len(pb["pendek"]))))),
-                "cta_i": least_used(f"cta-{pilar}", list(range(len(pb["cta"])))),
+                "cta_i": cta_i,
                 "user_topik": user_topik,
+                "topik_body_i": topik_body_i,
                 "emoji_seed": rng.randrange(1_000_000),
             })
+    _dedupe_rendered(brief, slots)
     return slots
+
+
+def _dedupe_rendered(brief: Brief, slots: list[dict[str, Any]]) -> None:
+    """Different variant choices can still render the same caption (e.g. when a body does not
+    use the focus product). Render with the template engine and nudge colliding slots."""
+    bank = T.SOSMED[brief.bahasa]["pilar"]
+    seen: set[str] = set()
+    for slot in slots:
+        pb = bank[slot["pilar"]]
+        n_hook, n_cta, n_short = len(pb["hook"]), len(pb["cta"]), len(pb["pendek"])
+        for attempt in range(n_hook * n_cta * n_short):
+            caption = generate_template(brief, slot)["caption"]
+            if caption not in seen:
+                break
+            slot["cta_i"] = (slot["cta_i"] + 1) % n_cta
+            if attempt % n_cta == n_cta - 1:
+                slot["hook_i"] = (slot["hook_i"] + 1) % n_hook
+                slot["pendek_i"] = (slot["pendek_i"] + 1) % n_short
+            if attempt % (n_cta * n_hook) == n_cta * n_hook - 1:
+                slot["topik_body_i"] += 1
+        seen.add(caption)
 
 
 def slot_key(slot: dict[str, Any]) -> str:
@@ -410,7 +449,8 @@ def generate_template(brief: Brief, slot: dict[str, Any]) -> dict[str, Any]:
         # with clearly marked blanks instead of inventing content.
         topik = slot["user_topik"]
         hook = T.fill(T.SOSMED[lang]["topik_hook"], {**values, "topik": topik})
-        body = T.fill(T.SOSMED[lang]["topik_body"], {**values, "topik": topik})
+        bodies = T.SOSMED[lang]["topik_body"]
+        body = T.fill(bodies[slot["topik_body_i"] % len(bodies)], {**values, "topik": topik})
         if platform == "x":
             hook = body = T.fill(T.SOSMED[lang]["topik_pendek"], {**values, "topik": topik})
     visual = T.fill(_pick_variant(pb["visual"], slot["visual_i"], values), values)

@@ -416,11 +416,17 @@ SOSMED: dict[str, dict[str, Any]] = {
             },
         },
         "topik_hook": "{Topik} {e}",
-        "topik_body": (
-            "[Tulis 2–3 kalimat penjelasan singkat tentang topik ini dengan bahasa sehari-hari.]"
-            "\n\nPoin penting:\n1. [poin pertama]\n2. [poin kedua]\n3. [poin ketiga]\n\n"
-            "Masih ada pertanyaan soal {niche}? Tulis di komentar, tim {brand} siap jawab."
-        ),
+        "topik_body": [
+            ("[Tulis 2–3 kalimat penjelasan singkat tentang topik ini dengan bahasa sehari-hari.]"
+             "\n\nPoin penting:\n1. [poin pertama]\n2. [poin kedua]\n3. [poin ketiga]\n\n"
+             "Masih ada pertanyaan soal {niche}? Tulis di komentar, tim {brand} siap jawab."),
+            ("Pertanyaan ini sering masuk ke DM kami 👇\n\n[Jelaskan jawabannya dalam "
+             "2–3 kalimat sederhana.]\n\nIntinya: [satu kalimat kesimpulan].\n\nAda pertanyaan "
+             "lain soal {niche}? Tulis di komentar!"),
+            ("Fakta singkat:\n[tulis fakta/penjelasan utama di sini]\n\nKenapa ini penting "
+             "{buat} {kamu}?\n[tulis manfaat praktisnya]\n\nMasih bingung? Tim {brand} siap "
+             "bantu."),
+        ],
         "topik_pendek": "{Topik}: [tulis 1 fakta/tips singkat di sini] {e}",
         "video": [
             "0–3 dtk (hook): teks besar di layar \"{hook}\" + {visual_open}",
@@ -567,9 +573,13 @@ SOSMED: dict[str, dict[str, Any]] = {
             },
         },
         "topik_hook": "{Topik} {e}",
-        "topik_body": ("[Write 2–3 sentences explaining this topic in plain words.]\n\n"
-                       "Key points:\n1. [point one]\n2. [point two]\n3. [point three]\n\n"
-                       "Questions about {niche}? Ask in the comments, {brand} will answer."),
+        "topik_body": [
+            ("[Write 2–3 sentences explaining this topic in plain words.]\n\nKey points:\n"
+             "1. [point one]\n2. [point two]\n3. [point three]\n\nQuestions about {niche}? "
+             "Ask in the comments, {brand} will answer."),
+            ("We get asked this a lot 👇\n\n[Answer in 2–3 simple sentences.]\n\nBottom line: "
+             "[one-sentence takeaway]."),
+        ],
         "topik_pendek": "{Topik}: [write one short fact/tip here] {e}",
         "video": [
             "0–3s (hook): big on-screen text \"{hook}\" + {visual_open}",
