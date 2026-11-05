@@ -1,0 +1,113 @@
+"""Command handlers. Pure functions: (message, context) -> reply text, easy to unit test."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import datetime
+
+from bot.faq import FaqItem, search
+from bot.pengingat import ReminderStore, parse_when
+
+
+@dataclass
+class Context:
+    bot_name: str
+    faq: list[FaqItem]
+    reminders: ReminderStore
+    now: Callable[[], datetime] = datetime.now
+
+
+HELP = """Perintah yang tersedia:
+/start - mulai & sapaan
+/help - bantuan ini
+/faq - daftar pertanyaan umum
+/faq <kata kunci> - cari jawaban
+/ingatkan <waktu> <pesan> - buat pengingat
+    waktu: 10m (menit), 2j (jam), 1h (hari) atau 07:30
+/pengingat - lihat pengingat aktif
+/batal <nomor> - batalkan pengingat
+
+Atau langsung ketik pertanyaan Anda."""
+
+
+def cmd_start(args: str, chat_id: int, ctx: Context, first_name: str = "") -> str:
+    name = f" {first_name}" if first_name else ""
+    return (
+        f"Halo{name}! Saya {ctx.bot_name}.\n"
+        "Ketik /help untuk melihat apa saja yang bisa saya bantu."
+    )
+
+
+def cmd_help(args: str, chat_id: int, ctx: Context, first_name: str = "") -> str:
+    return HELP
+
+
+def cmd_faq(args: str, chat_id: int, ctx: Context, first_name: str = "") -> str:
+    if not ctx.faq:
+        return "Belum ada FAQ. Tambahkan di faq.yaml."
+    if args:
+        item = search(ctx.faq, args)
+        if item:
+            return f"{item.pertanyaan}\n\n{item.jawaban}"
+        return "Maaf, jawaban belum ditemukan. Coba kata kunci lain atau /faq untuk daftar."
+    lines = ["Pertanyaan yang sering diajukan:"]
+    lines += [f"{i}. {item.pertanyaan}" for i, item in enumerate(ctx.faq, 1)]
+    lines.append("\nKetik /faq <kata kunci>, mis. /faq ongkir")
+    return "\n".join(lines)
+
+
+def cmd_remind(args: str, chat_id: int, ctx: Context, first_name: str = "") -> str:
+    spec, _, text = args.partition(" ")
+    now = ctx.now()
+    due = parse_when(spec, now) if spec else None
+    if not due or not text.strip():
+        return "Format: /ingatkan <waktu> <pesan>\nContoh: /ingatkan 30m angkat jemuran"
+    item = ctx.reminders.add(chat_id, due, text.strip())
+    return f"Siap! Pengingat #{item.id} pada {due:%d-%m-%Y %H:%M}: {item.text}"
+
+
+def cmd_list_reminders(args: str, chat_id: int, ctx: Context, first_name: str = "") -> str:
+    items = ctx.reminders.for_chat(chat_id)
+    if not items:
+        return "Tidak ada pengingat aktif."
+    return "Pengingat aktif:\n" + "\n".join(
+        f"#{r.id} {r.due_at:%d-%m %H:%M} - {r.text}" for r in items
+    )
+
+
+def cmd_cancel(args: str, chat_id: int, ctx: Context, first_name: str = "") -> str:
+    if not args.strip().isdigit():
+        return "Format: /batal <nomor>. Lihat nomor di /pengingat"
+    if ctx.reminders.cancel(chat_id, int(args)):
+        return f"Pengingat #{int(args)} dibatalkan."
+    return f"Pengingat #{args.strip()} tidak ditemukan."
+
+
+COMMANDS: dict[str, Callable[..., str]] = {
+    "start": cmd_start,
+    "help": cmd_help,
+    "bantuan": cmd_help,
+    "faq": cmd_faq,
+    "ingatkan": cmd_remind,
+    "pengingat": cmd_list_reminders,
+    "batal": cmd_cancel,
+}
+
+
+def handle_text(text: str, chat_id: int, ctx: Context, first_name: str = "") -> str | None:
+    """Return the reply for an incoming text message, or None to stay silent."""
+    text = (text or "").strip()
+    if not text:
+        return None
+    if text.startswith("/"):
+        head, _, args = text.partition(" ")
+        command = head[1:].split("@", 1)[0].lower()  # "/start@NamaBot" in groups
+        handler = COMMANDS.get(command)
+        if handler is None:
+            return "Perintah tidak dikenal. Ketik /help."
+        return handler(args.strip(), chat_id, ctx, first_name)
+    item = search(ctx.faq, text)
+    if item:
+        return f"{item.pertanyaan}\n\n{item.jawaban}"
+    return "Maaf, saya belum mengerti. Ketik /help atau /faq."

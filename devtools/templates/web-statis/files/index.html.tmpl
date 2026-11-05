@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ judul | e }}</title>
+  <meta name="description" content="{{ deskripsi | e }}">
+  <meta name="author" content="{{ penulis | e }}">
+  <meta property="og:title" content="{{ judul | e }}">
+  <meta property="og:description" content="{{ deskripsi | e }}">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#0f766e">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    // Set the theme before first paint to avoid a flash of the wrong colours.
+    (function () {
+      try {
+        var t = localStorage.getItem("tema");
+        if (t === "gelap" || t === "terang") document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body data-wa="6281200000000">
+  <!-- GANTI: nomor WhatsApp (format internasional tanpa +) di atribut data-wa pada <body> -->
+  <a class="skip-link" href="#utama">Lewati ke konten</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="#beranda" aria-label="{{ judul | e }} - beranda">
+        <span class="brand-mark" aria-hidden="true">{{ judul[:1] | upper | e }}</span>
+        <span class="brand-name">{{ judul | e }}</span>
+      </a>
+      <nav class="nav" id="nav" aria-label="Navigasi utama">
+        <a href="#layanan">Layanan</a>
+        <a href="#tentang">Tentang</a>
+        <a href="#testimoni">Testimoni</a>
+        <a href="#faq">FAQ</a>
+        <a href="#kontak" class="nav-cta">Hubungi kami</a>
+      </nav>
+      <div class="header-actions">
+        <button class="icon-btn" id="tema-toggle" type="button" aria-label="Ganti mode terang/gelap" title="Ganti mode terang/gelap">
+          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        </button>
+        <button class="icon-btn menu-btn" id="menu-toggle" type="button" aria-controls="nav" aria-expanded="false" aria-label="Buka menu">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="utama">
+    <section class="hero" id="beranda">
+      <div class="container hero-inner">
+        <div class="hero-text">
+          <p class="eyebrow">Usaha lokal &middot; melayani sejak {{ tahun }}</p>
+          <h1>{{ judul | e }}</h1>
+          <p class="lead">{{ deskripsi | e }}</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#kontak" data-wa-link>Pesan via WhatsApp</a>
+            <a class="btn btn-ghost" href="#layanan">Lihat layanan</a>
+          </div>
+          <ul class="hero-points">
+            <li>Respon cepat di jam kerja</li>
+            <li>Bayar via transfer, QRIS, atau COD</li>
+          </ul>
+        </div>
+        <!-- GANTI: ringkasan angka usaha Anda -->
+        <aside class="hero-card" aria-label="Sekilas tentang kami">
+          <div class="stat">
+            <span class="stat-num">4,9<small>/5</small></span>
+            <span class="stat-label">Rating pelanggan</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num">1.200+</span>
+            <span class="stat-label">Pesanan selesai</span>
+          </div>
+          <div class="stat">
+            <span class="stat-num">7 hari</span>
+            <span class="stat-label">Buka setiap minggu</span>
+          </div>
+          <p class="hero-card-note">Melayani area kota dan sekitarnya. Pengiriman ke seluruh Indonesia.</p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section" id="layanan">
+      <div class="container">
+        <header class="section-head">
+          <p class="eyebrow">Layanan</p>
+          <h2>Apa yang kami tawarkan</h2>
+          <p>Pilih layanan yang sesuai kebutuhan Anda. Harga transparan, tanpa biaya tersembunyi.</p>
+        </header>
+        <!-- GANTI: produk/layanan Anda -->
+        <div class="cards">
+          <article class="card">
+            <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4M3 17l9 4 9-4"/></svg></div>
+            <h3>Layanan Utama</h3>
+            <p>Jelaskan layanan andalan Anda dalam satu-dua kalimat yang mudah dipahami pelanggan.</p>
+            <p class="price">mulai <strong>Rp50.000</strong></p>
+          </article>
+          <article class="card">
+            <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 7H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1z"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></div>
+            <h3>Paket Usaha</h3>
+            <p>Paket hemat untuk pesanan rutin atau partai besar, cocok untuk kantor dan acara.</p>
+            <p class="price">mulai <strong>Rp250.000</strong></p>
+          </article>
+          <article class="card">
+            <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M1 3h15v13H1zM16 8h4l3 3v5h-7z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+            <h3>Antar ke Lokasi</h3>
+            <p>Pesanan diantar langsung ke rumah atau kantor Anda. Bisa dijadwalkan sesuai waktu.</p>
+            <p class="price">ongkir <strong>mulai Rp10.000</strong></p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-alt" id="tentang">
+      <div class="container split">
+        <div>
+          <p class="eyebrow">Tentang kami</p>
+          <h2>Dikelola dengan sepenuh hati</h2>
+          <!-- GANTI: cerita singkat usaha Anda -->
+          <p>{{ judul | e }} berawal dari usaha rumahan dan kini melayani ratusan pelanggan setiap bulan.
+            Kami percaya kualitas dan kejujuran adalah kunci kepercayaan pelanggan.</p>
+          <p>Ceritakan di sini siapa Anda, apa yang membuat usaha Anda berbeda, dan mengapa pelanggan
+            sebaiknya memilih Anda.</p>
+        </div>
+        <ul class="features">
+          <li><strong>Bahan berkualitas</strong><span>Dipilih langsung dari pemasok terpercaya.</span></li>
+          <li><strong>Harga bersahabat</strong><span>Sesuai kantong, ada promo setiap bulan.</span></li>
+          <li><strong>Pelayanan ramah</strong><span>Tim kami siap membantu lewat WhatsApp.</span></li>
+          <li><strong>Garansi puas</strong><span>Tidak sesuai pesanan? Kami ganti.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section" id="testimoni">
+      <div class="container">
+        <header class="section-head">
+          <p class="eyebrow">Testimoni</p>
+          <h2>Kata pelanggan kami</h2>
+        </header>
+        <!-- GANTI: testimoni asli dari pelanggan Anda -->
+        <div class="cards">
+          <figure class="card quote">
+            <blockquote>&ldquo;Pelayanannya cepat dan hasilnya rapi. Pasti pesan lagi!&rdquo;</blockquote>
+            <figcaption><strong>Rina</strong> &middot; Bandung</figcaption>
+          </figure>
+          <figure class="card quote">
+            <blockquote>&ldquo;Harga masuk akal, admin ramah dan sabar menjawab pertanyaan.&rdquo;</blockquote>
+            <figcaption><strong>Agus</strong> &middot; Surabaya</figcaption>
+          </figure>
+          <figure class="card quote">
+            <blockquote>&ldquo;Langganan untuk acara kantor, selalu tepat waktu.&rdquo;</blockquote>
+            <figcaption><strong>Dewi</strong> &middot; Jakarta</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-alt" id="faq">
+      <div class="container narrow">
+        <header class="section-head">
+          <p class="eyebrow">FAQ</p>
+          <h2>Pertanyaan yang sering diajukan</h2>
+        </header>
+        <div class="faq">
+          <details>
+            <summary>Bagaimana cara memesan?</summary>
+            <p>Klik tombol &ldquo;Pesan via WhatsApp&rdquo; atau isi formulir di bagian kontak. Admin akan membalas di jam kerja.</p>
+          </details>
+          <details>
+            <summary>Metode pembayaran apa saja yang tersedia?</summary>
+            <p>Transfer bank, QRIS, dan bayar di tempat (COD) untuk area tertentu.</p>
+          </details>
+          <details>
+            <summary>Apakah bisa kirim ke luar kota?</summary>
+            <p>Bisa. Kami bekerja sama dengan beberapa ekspedisi; ongkir mengikuti tarif ekspedisi.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="kontak">
+      <div class="container split">
+        <div>
+          <p class="eyebrow">Kontak</p>
+          <h2>Mari ngobrol</h2>
+          <p>Tanya stok, harga, atau pesan langsung. Kami biasanya membalas dalam 15 menit.</p>
+          <!-- GANTI: alamat, jam buka, email -->
+          <dl class="contact-list">
+            <div><dt>Alamat</dt><dd>Jl. Contoh No. 123, Kota Anda</dd></div>
+            <div><dt>Jam buka</dt><dd>Senin&ndash;Sabtu, 08.00&ndash;17.00 WIB</dd></div>
+            <div><dt>Email</dt><dd><a href="mailto:halo@contoh.id">halo@contoh.id</a></dd></div>
+          </dl>
+        </div>
+        <form class="card form" id="form-kontak" novalidate>
+          <h3>Kirim pesan via WhatsApp</h3>
+          <label for="nama">Nama</label>
+          <input id="nama" name="nama" type="text" autocomplete="name" required>
+          <label for="pesan">Pesan</label>
+          <textarea id="pesan" name="pesan" rows="4" required placeholder="Contoh: Halo, saya mau tanya paket usaha"></textarea>
+          <p class="form-error" id="form-error" role="alert" hidden>Nama dan pesan wajib diisi.</p>
+          <button class="btn btn-primary" type="submit">Kirim ke WhatsApp</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>&copy; <span id="tahun">{{ tahun }}</span> {{ judul | e }}. Dibuat oleh {{ penulis | e }}.</p>
+      <a href="#beranda">Kembali ke atas</a>
+    </div>
+  </footer>
+
+  <script src="js/main.js" defer></script>
+</body>
+</html>

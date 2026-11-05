@@ -1,0 +1,8 @@
+judul: Web Statis
+deskripsi: Landing page responsif (HTML/CSS/JS, mode terang/gelap) untuk usaha kecil, siap GitHub Pages
+deskripsi_default: "{judul} - produk & layanan terbaik untuk Anda"
+langkah:
+  - cd {folder}
+  - Buka index.html di browser (atau - python -m http.server 8000 lalu buka http://localhost:8000)
+  - Ganti teks bertanda GANTI di index.html dan nomor WhatsApp di atribut data-wa
+  - Push ke GitHub, lalu Settings - Pages - Source - GitHub Actions

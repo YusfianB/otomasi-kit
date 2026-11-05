@@ -1,0 +1,79 @@
+# {{ judul }}
+
+{{ deskripsi }}
+
+Dibuat oleh {{ penulis }} ({{ tahun }}) dari template `api-fastapi` otomasi-kit.
+REST API dengan [FastAPI](https://fastapi.tiangolo.com/) + pydantic dan database SQLite
+(modul standar `sqlite3`, tanpa ORM).
+
+## Menjalankan secara lokal
+
+```bash
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -r requirements-dev.txt
+cp .env.example .env               # Windows: copy .env.example .env
+uvicorn app.main:app --reload
+```
+
+Buka dokumentasi interaktif di <http://127.0.0.1:8000/docs>.
+
+## Endpoint
+
+| Metode | Path              | Keterangan                                  |
+|--------|-------------------|---------------------------------------------|
+| GET    | `/`               | Info aplikasi                               |
+| GET    | `/kesehatan`      | Health check                                |
+| GET    | `/produk`         | Daftar produk (`q`, `limit`, `offset`)      |
+| POST   | `/produk`         | Tambah produk                               |
+| GET    | `/produk/{id}`    | Detail produk                               |
+| PUT    | `/produk/{id}`    | Ganti seluruh data produk                   |
+| PATCH  | `/produk/{id}`    | Ubah sebagian field                         |
+| DELETE | `/produk/{id}`    | Hapus produk                                |
+
+Contoh:
+
+```bash
+curl -X POST http://127.0.0.1:8000/produk \
+  -H "Content-Type: application/json" \
+  -d '{"nama": "Kopi Gayo 250 gr", "harga": 85000, "stok": 10}'
+curl "http://127.0.0.1:8000/produk?q=kopi"
+```
+
+## Konfigurasi (`.env`)
+
+| Variabel        | Default        | Keterangan                              |
+|-----------------|----------------|-----------------------------------------|
+| `APP_NAME`      | {{ judul }}    | Judul di dokumentasi API                |
+| `DATABASE_PATH` | `data/app.db`  | Lokasi file SQLite                      |
+| `CORS_ORIGINS`  | (kosong)       | Origin browser yang diizinkan, koma     |
+| `DEBUG`         | `false`        | Mode debug                              |
+
+## Tes & lint
+
+```bash
+pytest
+ruff check .
+```
+
+## Docker
+
+```bash
+docker build -t {{ slug }} .
+docker run -p 8000:8000 -v {{ slug }}-data:/data {{ slug }}
+```
+
+## Struktur
+
+```
+app/
+  main.py            # create_app(), middleware, router
+  config.py          # pengaturan dari environment / .env
+  db.py              # SQLite + ProdukRepository (stdlib saja)
+  schemas.py         # model pydantic
+  routers/produk.py  # endpoint CRUD
+tests/               # pytest + TestClient (httpx)
+```
+
+Untuk menambah resource baru: buat tabel di `db.py`, model di `schemas.py`, router baru di
+`app/routers/`, lalu daftarkan dengan `app.include_router(...)` di `main.py`.

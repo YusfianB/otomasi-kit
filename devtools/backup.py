@@ -113,7 +113,7 @@ def _as_list(value: Any) -> list:
 
 def _resolve(base: Path, value: str | os.PathLike) -> Path:
     p = Path(os.path.expanduser(os.path.expandvars(str(value))))
-    return p if p.is_absolute() else (base / p)
+    return Path(os.path.abspath(p if p.is_absolute() else (base / p)))
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
@@ -328,7 +328,9 @@ def dump_databases(db: DatabaseConfig, workdir: Path) -> list[tuple[Path, str]]:
 
 def _run_dump(cmd: list[str], tool: str, env: dict[str, str]) -> None:
     try:
-        proc = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=3600)
+        proc = subprocess.run(
+            cmd, env=env, capture_output=True, text=True, timeout=3600, check=False
+        )
     except subprocess.TimeoutExpired as exc:
         raise BackupError(f"{tool} melebihi batas waktu 1 jam.") from exc
     if proc.returncode != 0:
@@ -561,14 +563,17 @@ class _Archive:
     def __init__(self, path: Path):
         self.path = Path(path)
         self.fmt = detect_format(self.path)
+        self._zf: zipfile.ZipFile | None = None
+        self._tf: tarfile.TarFile | None = None
         try:
             if self.fmt == "zip":
                 self._zf = zipfile.ZipFile(self.path)
                 self._members = {i.filename: i for i in self._zf.infolist() if not i.is_dir()}
             else:
-                self._tf = tarfile.open(self.path, "r:gz")
+                self._tf = tarfile.open(self.path, "r:gz")  # noqa: SIM115 - closed in close()
                 self._members = {m.name: m for m in self._tf.getmembers() if not m.isdir()}
         except (zipfile.BadZipFile, tarfile.TarError, OSError, EOFError) as exc:
+            self.close()
             raise BackupError(f"Arsip rusak atau tidak bisa dibuka ({self.path.name}): {exc}") from exc
 
     def names(self) -> list[str]:
@@ -604,10 +609,9 @@ class _Archive:
                 raise BackupError(f"Manifest rusak: {exc}") from exc
 
     def close(self) -> None:
-        if self.fmt == "zip":
-            self._zf.close()
-        else:
-            self._tf.close()
+        for handle in (self._zf, self._tf):
+            if handle is not None:
+                handle.close()
 
     def __enter__(self):
         return self

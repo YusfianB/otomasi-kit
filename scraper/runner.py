@@ -96,8 +96,11 @@ class Checkpoint:
                     continue  # partial last line after a crash
                 if i == 0 and rec.get("_checkpoint"):
                     if rec.get("config") != self.config_name:
-                        log.warning("Checkpoint %s milik config lain ('%s'); diabaikan.",
-                                    self.path, rec.get("config"))
+                        log.warning(
+                            "Checkpoint %s milik config lain ('%s'); diabaikan.",
+                            self.path,
+                            rec.get("config"),
+                        )
                         return []
                     continue
                 records.append(rec)
@@ -107,8 +110,11 @@ class Checkpoint:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         if keep and self.path.exists():
             return
-        header = {"_checkpoint": 1, "config": self.config_name,
-                  "dibuat": datetime.now().isoformat(timespec="seconds")}
+        header = {
+            "_checkpoint": 1,
+            "config": self.config_name,
+            "dibuat": datetime.now().isoformat(timespec="seconds"),
+        }
         self.path.write_text(json.dumps(header) + "\n", encoding="utf-8")
 
     def append(self, record: dict) -> None:
@@ -139,6 +145,7 @@ def scrape(
     key_fields = dedupe_fields(cfg)
     listing_names = {f.name for f in cfg.fields}
     dedupe_before_detail = set(key_fields) <= listing_names
+    pattern_mode = bool(cfg.pagination and cfg.pagination.url_pattern)
 
     items: list[dict] = []
     seen: set[str] = set()
@@ -164,8 +171,11 @@ def scrape(
         queue.extend(r for r in initial_pages(cfg) if r.url not in visited)
         queue.extend(r for r in pending if r.url not in visited)
         if records:
-            log.info("Melanjutkan dari checkpoint: %d halaman, %d item sudah ada.",
-                     summary.resumed_pages, len(items))
+            log.info(
+                "Melanjutkan dari checkpoint: %d halaman, %d item sudah ada.",
+                summary.resumed_pages,
+                len(items),
+            )
     else:
         queue.extend(initial_pages(cfg))
     if ckpt:
@@ -198,6 +208,10 @@ def scrape(
                     ckpt.append({"url": ref.url, "error": str(exc)})
                 continue
             except FetchError as exc:
+                if exc.status == 404 and pattern_mode and summary.pages > 1:
+                    log.info("  Halaman tidak ada (404): dianggap halaman terakhir sudah lewat.")
+                    summary.pages -= 1
+                    continue
                 summary.errors.append({"url": ref.url, "pesan": str(exc)})
                 log.warning("  %s", exc)
                 if ckpt:
@@ -208,8 +222,9 @@ def scrape(
             summary.dropped += result.dropped
             new_items: list[dict] = []
             for item in result.items:
-                if cap_reached() or (item_cap is not None and
-                                     len(items) + len(new_items) >= item_cap):
+                if cap_reached() or (
+                    item_cap is not None and len(items) + len(new_items) >= item_cap
+                ):
                     break
                 if dedupe_before_detail:
                     k = item_key(item, key_fields)
@@ -225,24 +240,29 @@ def scrape(
                 seen.add(k)
                 new_items.append(item)
             items.extend(new_items)
-            log.info("  %d item ditemukan, %d baru (total %d)",
-                     result.found, len(new_items), len(items))
+            log.info(
+                "  %d item ditemukan, %d baru (total %d)", result.found, len(new_items), len(items)
+            )
             if result.found == 0:
-                log.warning("  Tidak ada item yang cocok di halaman ini. Cek selector 'items' "
-                            "dengan perintah: python -m scraper uji <config> %s", ref.url)
+                log.warning(
+                    "  Tidak ada item yang cocok di halaman ini. Cek selector 'items' "
+                    "dengan perintah: python -m scraper uji <config> %s",
+                    ref.url,
+                )
 
-            nxt = next_pages(cfg, result.soup, ref, page_base(result.soup, page.url),
-                             result.found)
+            nxt = next_pages(cfg, result.soup, ref, page_base(result.soup, page.url), result.found)
             queue.extend(n for n in nxt if n.url not in visited)
             if ckpt:
-                ckpt.append({"url": ref.url, "items": new_items,
-                             "next": [[n.url, n.page_no] for n in nxt]})
+                ckpt.append(
+                    {"url": ref.url, "items": new_items, "next": [[n.url, n.page_no] for n in nxt]}
+                )
         if cap_reached() and summary.stopped_reason == "selesai":
             summary.stopped_reason = f"batas max_items ({item_cap}) tercapai"
     except KeyboardInterrupt:
         summary.stopped_reason = "dihentikan pengguna (Ctrl+C) - jalankan lagi dengan --lanjut"
-        log.warning("Dihentikan. Progres tersimpan di checkpoint; pakai --lanjut untuk "
-                    "melanjutkan.")
+        log.warning(
+            "Dihentikan. Progres tersimpan di checkpoint; pakai --lanjut untuk melanjutkan."
+        )
     finally:
         if own_fetcher:
             fetcher.close()
@@ -255,8 +275,9 @@ def scrape(
     return items, summary
 
 
-def _follow_detail(cfg: ScraperConfig, fetcher: Fetcher, item: dict[str, Any],
-                   summary: RunSummary) -> None:
+def _follow_detail(
+    cfg: ScraperConfig, fetcher: Fetcher, item: dict[str, Any], summary: RunSummary
+) -> None:
     detail = cfg.detail
     assert detail is not None
     for spec in detail.fields:
@@ -275,8 +296,9 @@ def _follow_detail(cfg: ScraperConfig, fetcher: Fetcher, item: dict[str, Any],
         log.warning("  detail gagal: %s", exc)
         return
     summary.detail_pages += 1
-    values, _ = extract_detail(page.html, page.url, detail.fields, detail.json_ld,
-                               detail.json_ld_type)
+    values, _ = extract_detail(
+        page.html, page.url, detail.fields, detail.json_ld, detail.json_ld_type
+    )
     for name, value in values.items():
         if value not in (None, "") or item.get(name) in (None, ""):
             item[name] = value

@@ -1,0 +1,31 @@
+# Profil brand untuk: python -m konten sosmed --profil konten/examples/brand.yaml
+# Semua kunci opsional kecuali brand & niche. Nilai di CLI (mis. --jumlah) menimpa isi file ini.
+brand: Kopi Senja
+niche: kopi susu kekinian            # kategori produk/jasa (frasa benda)
+audiens: mahasiswa dan pekerja muda di Bandung
+tone: santai                         # santai | profesional | lucu | inspiratif | edukatif
+platform: [instagram, tiktok, x]     # instagram, tiktok, linkedin, x, facebook
+jumlah: 7                            # jumlah posting PER platform
+mulai: 2026-11-09                    # YYYY-MM-DD
+frekuensi: 3x-seminggu               # harian | 2x-seminggu | 3x-seminggu | 5x-seminggu | mingguan | angka hari
+lokasi: Bandung
+produk:
+  - Es Kopi Susu Gula Aren
+  - Kopi Pandan Latte
+  - Americano Senja
+keunggulan:
+  - biji kopi lokal dari Garut yang di-roasting sendiri
+  - harga mulai 15 ribuan
+  - buka sampai jam 11 malam, cocok buat nugas
+# Tulis sebagai keluhan/kondisi, enak dibaca setelah kata "Masih ...?"
+masalah:
+  - ngantuk saat kerja atau kuliah
+  - susah cari tempat nongkrong yang nyaman dan murah
+promo: Diskon 20% setiap Jumat untuk pembelian lewat aplikasi
+hashtag: ["#kopisenja", "#ngopidibandung"]
+link: https://linktr.ee/kopisenja
+# Topik opsional untuk pilar edukasi (dipakai bergiliran):
+topik:
+  - Bedanya kopi susu gula aren dan kopi susu biasa
+  - Cara menyimpan kopi literan biar tetap enak
+catatan: Hindari klaim kesehatan berlebihan.

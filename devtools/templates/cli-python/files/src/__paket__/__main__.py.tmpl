@@ -1,0 +1,8 @@
+"""Allow ``python -m {{ paket }}``."""
+
+import sys
+
+from {{ paket }}.cli import main
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,62 @@
+"""Configuration loading (TOML) with sane defaults.
+
+Lookup order (first one found wins):
+1. ``--config PATH`` on the command line
+2. environment variable ``{{ paket | upper }}_CONFIG``
+3. ``./{{ slug }}.toml`` in the current folder
+4. ``~/.config/{{ slug }}/config.toml``
+"""
+
+from __future__ import annotations
+
+import os
+import tomllib
+from pathlib import Path
+from typing import Any
+
+ENV_VAR = "{{ paket | upper }}_CONFIG"
+
+DEFAULTS: dict[str, Any] = {
+    "sapaan": "Halo",
+    "bahasa": "id",
+    "log": {"level": "INFO", "file": ""},
+}
+
+
+class ConfigError(Exception):
+    """Invalid or unreadable configuration."""
+
+
+def candidate_paths(explicit: str | os.PathLike | None = None) -> list[Path]:
+    if explicit:
+        return [Path(explicit)]
+    paths = []
+    if os.environ.get(ENV_VAR):
+        paths.append(Path(os.environ[ENV_VAR]))
+    paths.append(Path.cwd() / "{{ slug }}.toml")
+    paths.append(Path.home() / ".config" / "{{ slug }}" / "config.toml")
+    return paths
+
+
+def _merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    out = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(out.get(key), dict):
+            out[key] = _merge(out[key], value)
+        else:
+            out[key] = value
+    return out
+
+
+def load_config(explicit: str | os.PathLike | None = None) -> tuple[dict[str, Any], Path | None]:
+    """Return ``(config, path_used)``; ``path_used`` is None when only defaults apply."""
+    for path in candidate_paths(explicit):
+        if path.is_file():
+            try:
+                data = tomllib.loads(path.read_text(encoding="utf-8"))
+            except (OSError, tomllib.TOMLDecodeError) as exc:
+                raise ConfigError(f"Config {path} tidak valid: {exc}") from exc
+            return _merge(DEFAULTS, data), path
+        if explicit:
+            raise ConfigError(f"File config tidak ditemukan: {path}")
+    return _merge(DEFAULTS, {}), None

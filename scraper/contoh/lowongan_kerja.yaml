@@ -1,0 +1,70 @@
+# =============================================================================
+# Contoh: daftar lowongan kerja (pagination dengan pola URL ?page=N)
+# =============================================================================
+# URL di bawah hanya contoh. Ganti dengan situs lowongan yang mengizinkan scraping
+# (cek robots.txt dan Syarat & Ketentuannya). Uji selector pada file contoh lokal:
+#
+#   python -m scraper uji scraper/contoh/lowongan_kerja.yaml scraper/tests/fixtures/lain/lowongan.html
+#
+# CATATAN UU PDP: jangan mengambil data pribadi (nama/nomor HP/email perekrut, CV
+# pelamar, dll.). Cukup data lowongan yang bersifat publik seperti di bawah.
+
+name: lowongan_kerja
+
+# Pola URL: {page} diganti 1, 2, 3, ... sampai 'end' atau sampai halaman kosong/404.
+pagination:
+  url_pattern: https://lowongan-contoh.example/cari?q=admin&lokasi=jabodetabek&page={page}
+  start: 1
+  end: 10
+  stop_when_empty: true      # berhenti jika satu halaman tidak punya lowongan
+
+# start_urls boleh dikosongkan bila memakai url_pattern.
+start_urls: []
+
+items: article.lowongan
+
+fields:
+  posisi:
+    selector: h2.posisi
+    required: true
+  perusahaan: div.perusahaan
+  lokasi: div.lokasi
+
+  gaji_min:
+    selector: div.gaji
+    type: price_idr          # "Rp4.500.000 - Rp5.500.000" -> angka pertama: 4500000
+  gaji_maks:
+    selector: div.gaji
+    regex: '-\s*(.+)'        # bagian setelah tanda "-"
+    type: price_idr          # "Rp12 jt - Rp18 jt" -> 18000000
+  gaji_teks: div.gaji        # teks asli, mis. "Gaji dirahasiakan"
+
+  tanggal_posting:
+    selector: time.tanggal
+    attr: datetime           # atribut datetime lebih akurat daripada "2 hari yang lalu"
+    type: date
+
+  tag:
+    selector: ul.tag li
+    multiple: true           # ambil SEMUA <li>, digabung dengan ", "
+    join: ', '
+
+  link:
+    selector: h2.posisi a
+    attr: href
+    type: url
+
+  id_lowongan:
+    attr: data-id
+
+dedupe_by: [link]
+
+monitor:
+  key: link
+  label: posisi
+  price: gaji_min            # pantau perubahan gaji minimum
+
+delay: [2, 5]                # situs lowongan sering ketat: lebih pelan lebih aman
+timeout: 25
+retries: 2
+max_items: 300

@@ -25,8 +25,13 @@ def initial_pages(cfg: ScraperConfig) -> list[PageRef]:
     return [PageRef(url, 1) for url in cfg.start_urls]
 
 
-def next_pages(cfg: ScraperConfig, soup: BeautifulSoup | None, current: PageRef,
-               base_url: str, found_items: int) -> list[PageRef]:
+def next_pages(
+    cfg: ScraperConfig,
+    soup: BeautifulSoup | None,
+    current: PageRef,
+    base_url: str,
+    found_items: int,
+) -> list[PageRef]:
     """Pages to visit after `current`. `found_items` is how many items the page had."""
     p = cfg.pagination
     if p is None:
@@ -56,8 +61,12 @@ def page_limit(cfg: ScraperConfig, override: int | None = None) -> int | None:
     """Effective maximum number of listing pages (None = unlimited). CLI override wins."""
     if override:
         return override
-    limits = [x for x in (
-        cfg.max_pages,
-        cfg.pagination.max_pages if cfg.pagination else None,
-    ) if x]
+    limits = [
+        x
+        for x in (
+            cfg.max_pages,
+            cfg.pagination.max_pages if cfg.pagination else None,
+        )
+        if x
+    ]
     return min(limits) if limits else None

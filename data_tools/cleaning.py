@@ -5,8 +5,9 @@ from __future__ import annotations
 import datetime as dt
 import logging
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any, Iterable
+from typing import Any
 
 import pandas as pd
 
@@ -320,3 +321,23 @@ def clean_dataframe(df: pd.DataFrame, options: CleanOptions | None = None
 
 def describe_types(report: CleanReport) -> str:
     return ", ".join(f"{c}={t}" for c, t in report.types.items())
+
+
+def unify_variants(series: pd.Series) -> tuple[pd.Series, int]:
+    """Map text variants that differ only in letter case/spacing ("MINYAK GORENG 2L" vs
+    "Minyak Goreng 2L") to the most frequent spelling. Returns (series, values changed)."""
+    if not (series.dtype == object or pd.api.types.is_string_dtype(series)):
+        return series, 0
+    texts = series.dropna()
+    texts = texts[texts.map(lambda v: isinstance(v, str))]
+    if texts.empty:
+        return series, 0
+    keys = texts.map(lambda v: " ".join(v.split()).casefold())
+    canonical = {}
+    for key, group in texts.groupby(keys):
+        canonical[key] = group.value_counts().index[0]
+    mapped = series.map(
+        lambda v: canonical.get(" ".join(v.split()).casefold(), v) if isinstance(v, str) else v
+    )
+    changed = int((mapped[series.notna()] != series[series.notna()]).sum())
+    return mapped.astype(object), changed

@@ -1,0 +1,48 @@
+"""Very small Telegram Bot API client built on ``requests`` (long polling)."""
+
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+import requests
+
+log = logging.getLogger(__name__)
+
+API_URL = "https://api.telegram.org/bot{token}/{method}"
+
+
+class TelegramError(Exception):
+    pass
+
+
+class TelegramClient:
+    def __init__(self, token: str, session: requests.Session | None = None):
+        self.token = token
+        self.session = session or requests.Session()
+
+    def call(self, method: str, timeout: float = 15, **params: Any) -> Any:
+        url = API_URL.format(token=self.token, method=method)
+        try:
+            resp = self.session.post(url, json=params, timeout=timeout)
+            data = resp.json()
+        except (requests.RequestException, ValueError) as exc:
+            raise TelegramError(f"{method} gagal: {exc}") from exc
+        if not data.get("ok"):
+            raise TelegramError(f"{method} ditolak: {data.get('description', data)}")
+        return data["result"]
+
+    def get_me(self) -> dict[str, Any]:
+        return self.call("getMe")
+
+    def get_updates(self, offset: int | None, timeout: int = 30) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {"timeout": timeout, "allowed_updates": ["message"]}
+        if offset is not None:
+            params["offset"] = offset
+        # HTTP timeout must be longer than the long-poll timeout.
+        return self.call("getUpdates", timeout=timeout + 10, **params)
+
+    def send_message(self, chat_id: int, text: str) -> dict[str, Any]:
+        return self.call(
+            "sendMessage", chat_id=chat_id, text=text[:4096], disable_web_page_preview=True
+        )

@@ -1,0 +1,12 @@
+# {{ judul }}
+FROM python:3.13-slim
+ENV PYTHONUNBUFFERED=1 DATA_DIR=/data
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY bot ./bot
+COPY faq.yaml .
+RUN useradd --create-home --uid 1000 botuser && mkdir -p /data && chown botuser /data
+USER botuser
+VOLUME ["/data"]
+CMD ["python", "-m", "bot"]

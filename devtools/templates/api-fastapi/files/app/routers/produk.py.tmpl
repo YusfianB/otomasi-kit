@@ -1,0 +1,76 @@
+"""CRUD endpoints for /produk."""
+
+from __future__ import annotations
+
+from collections.abc import Iterator
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+
+from app.db import ProdukRepository, open_db
+from app.schemas import DaftarProduk, Pesan, Produk, ProdukCreate, ProdukUpdate
+
+router = APIRouter(prefix="/produk", tags=["produk"])
+
+NOT_FOUND = {404: {"model": Pesan, "description": "Produk tidak ditemukan"}}
+
+
+def get_repo(request: Request) -> Iterator[ProdukRepository]:
+    """One SQLite connection per request (the path comes from app.state)."""
+    with open_db(request.app.state.database_path) as conn:
+        yield ProdukRepository(conn)
+
+
+# Annotated dependency: reusable and keeps function defaults free of calls.
+Repo = Annotated[ProdukRepository, Depends(get_repo)]
+
+
+def _or_404(item: dict | None, produk_id: int) -> dict:
+    if item is None:
+        raise HTTPException(status_code=404, detail=f"Produk {produk_id} tidak ditemukan")
+    return item
+
+
+@router.get("", response_model=DaftarProduk)
+def daftar_produk(
+    repo: Repo,
+    q: Annotated[str | None, Query(description="Cari di nama/deskripsi")] = None,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+):
+    return {
+        "total": repo.count(q),
+        "limit": limit,
+        "offset": offset,
+        "data": repo.find(q, limit, offset),
+    }
+
+
+@router.post("", response_model=Produk, status_code=status.HTTP_201_CREATED)
+def buat_produk(payload: ProdukCreate, repo: Repo):
+    return repo.create(payload.model_dump())
+
+
+@router.get("/{produk_id}", response_model=Produk, responses=NOT_FOUND)
+def ambil_produk(produk_id: int, repo: Repo):
+    return _or_404(repo.get(produk_id), produk_id)
+
+
+@router.put("/{produk_id}", response_model=Produk, responses=NOT_FOUND)
+def ganti_produk(produk_id: int, payload: ProdukCreate, repo: Repo):
+    return _or_404(repo.update(produk_id, payload.model_dump()), produk_id)
+
+
+@router.patch("/{produk_id}", response_model=Produk, responses=NOT_FOUND)
+def ubah_produk(produk_id: int, payload: ProdukUpdate, repo: Repo):
+    return _or_404(repo.update(produk_id, payload.model_dump(exclude_unset=True)), produk_id)
+
+
+@router.delete(
+    "/{produk_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response,
+    responses=NOT_FOUND,
+)
+def hapus_produk(produk_id: int, repo: Repo):
+    if not repo.delete(produk_id):
+        raise HTTPException(status_code=404, detail=f"Produk {produk_id} tidak ditemukan")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

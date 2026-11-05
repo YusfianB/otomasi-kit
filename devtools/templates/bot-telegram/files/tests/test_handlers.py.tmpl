@@ -1,0 +1,63 @@
+from datetime import datetime
+from pathlib import Path
+
+import pytest
+
+from bot.app import process_update
+from bot.faq import load_faq
+from bot.handlers import Context, handle_text
+from bot.pengingat import ReminderStore
+
+FIXED_NOW = datetime(2026, 1, 5, 9, 0, 0)
+
+
+@pytest.fixture
+def ctx(tmp_path):
+    return Context(
+        bot_name="Bot Tes",
+        faq=load_faq(Path(__file__).resolve().parent.parent / "faq.yaml"),
+        reminders=ReminderStore(tmp_path / "pengingat.json"),
+        now=lambda: FIXED_NOW,
+    )
+
+
+def test_start_and_help(ctx):
+    assert "Bot Tes" in handle_text("/start", 1, ctx, "Ani")
+    assert "Ani" in handle_text("/start@BotTes", 1, ctx, "Ani")
+    assert "/ingatkan" in handle_text("/help", 1, ctx)
+
+
+def test_unknown_command(ctx):
+    assert "tidak dikenal" in handle_text("/xyz", 1, ctx)
+
+
+def test_faq_list_and_search(ctx):
+    assert "Pertanyaan yang sering" in handle_text("/faq", 1, ctx)
+    assert "Rp200.000" in handle_text("/faq ongkir", 1, ctx)
+    assert "QRIS" in handle_text("bisa bayar pakai qris?", 1, ctx)
+
+
+def test_reminder_flow(ctx):
+    reply = handle_text("/ingatkan 30m angkat jemuran", 7, ctx)
+    assert "#1" in reply and "09:30" in reply
+    assert "angkat jemuran" in handle_text("/pengingat", 7, ctx)
+    assert "Tidak ada" in handle_text("/pengingat", 8, ctx)  # other chat
+    assert "dibatalkan" in handle_text("/batal 1", 7, ctx)
+    assert "Format" in handle_text("/ingatkan besok", 7, ctx)
+
+
+class FakeClient:
+    def __init__(self):
+        self.sent = []
+
+    def send_message(self, chat_id, text):
+        self.sent.append((chat_id, text))
+
+
+def test_process_update_replies(ctx):
+    client = FakeClient()
+    update = {"update_id": 1, "message": {"text": "/help", "chat": {"id": 42}, "from": {}}}
+    process_update(update, client, ctx)
+    assert client.sent and client.sent[0][0] == 42
+    process_update({"update_id": 2, "message": {"chat": {"id": 42}}}, client, ctx)  # no text
+    assert len(client.sent) == 1

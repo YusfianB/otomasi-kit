@@ -1,0 +1,57 @@
+"""FastAPI application factory.
+
+Run locally:  uvicorn app.main:app --reload
+"""
+
+from __future__ import annotations
+
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app import __version__
+from app.config import Settings, get_settings
+from app.db import open_db
+from app.routers import produk
+
+
+def create_app(settings: Settings | None = None) -> FastAPI:
+    settings = settings or get_settings()
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        # Create the schema once at startup.
+        with open_db(app.state.database_path):
+            pass
+        yield
+
+    app = FastAPI(
+        title=settings.app_name,
+        description={{ deskripsi | tojson }},
+        version=__version__,
+        debug=settings.debug,
+        lifespan=lifespan,
+    )
+    app.state.database_path = settings.database_path
+    if settings.cors_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=list(settings.cors_origins),
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
+    @app.get("/", tags=["info"])
+    def root():
+        return {"nama": settings.app_name, "versi": __version__, "dokumentasi": "/docs"}
+
+    @app.get("/kesehatan", tags=["info"])
+    def kesehatan():
+        return {"status": "ok"}
+
+    app.include_router(produk.router)
+    return app
+
+
+app = create_app()

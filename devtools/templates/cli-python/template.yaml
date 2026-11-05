@@ -1,0 +1,9 @@
+judul: CLI Python
+deskripsi: Kerangka tool command-line Python (argparse, logging, config TOML, tes pytest, packaging pyproject)
+deskripsi_default: Tool command-line {judul}
+langkah:
+  - cd {folder}
+  - python -m venv .venv && source .venv/bin/activate   (Windows - .venv\Scripts\activate)
+  - pip install -e ".[dev]"
+  - pytest
+  - "{slug} --help   (atau: python -m {paket} --help)"

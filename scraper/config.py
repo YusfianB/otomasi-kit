@@ -38,6 +38,7 @@ class FieldSpec:
     join: str = ", "
     decimal: str | None = None  # "," or "." to force the decimal separator
     date_format: str | None = None  # explicit strptime format, e.g. "%d/%m/%Y"
+    map: dict[str, Any] | None = None  # replace values, e.g. {"Three": 3}
 
 
 @dataclass
@@ -110,14 +111,46 @@ class ScraperConfig:
 # --------------------------------------------------------------------------- helpers
 
 _TOP_KEYS = {
-    "name", "nama", "start_urls", "items", "fields", "json_ld", "json_ld_type", "json_script",
-    "json_items_path", "pagination", "detail", "monitor", "headers", "user_agent", "delay",
-    "timeout", "retries", "backoff", "max_items", "max_pages", "dedupe_by", "respect_robots",
-    "render", "render_wait", "description", "deskripsi",
+    "name",
+    "nama",
+    "start_urls",
+    "items",
+    "fields",
+    "json_ld",
+    "json_ld_type",
+    "json_script",
+    "json_items_path",
+    "pagination",
+    "detail",
+    "monitor",
+    "headers",
+    "user_agent",
+    "delay",
+    "timeout",
+    "retries",
+    "backoff",
+    "max_items",
+    "max_pages",
+    "dedupe_by",
+    "respect_robots",
+    "render",
+    "render_wait",
+    "description",
+    "deskripsi",
 }
 _FIELD_KEYS = {
-    "selector", "attr", "path", "regex", "type", "default", "required", "multiple", "join",
-    "decimal", "date_format",
+    "selector",
+    "attr",
+    "path",
+    "regex",
+    "type",
+    "default",
+    "required",
+    "multiple",
+    "join",
+    "decimal",
+    "date_format",
+    "map",
 }
 _PAGINATION_KEYS = {"next", "url_pattern", "start", "end", "max_pages", "stop_when_empty"}
 _DETAIL_KEYS = {"link", "fields", "json_ld", "json_ld_type"}
@@ -186,6 +219,9 @@ def _parse_fields(raw: Any, where: str) -> list[FieldSpec]:
                 re.compile(regex)
             except re.error as exc:
                 raise ConfigError(f"Regex pada field '{name}' tidak valid: {exc}") from None
+        mapping = spec.get("map")
+        if mapping is not None and not isinstance(mapping, dict):
+            raise ConfigError(f"'map' pada field '{name}' harus berupa pasangan nilai: ganti.")
         fields.append(
             FieldSpec(
                 name=name,
@@ -200,6 +236,7 @@ def _parse_fields(raw: Any, where: str) -> list[FieldSpec]:
                 join=str(spec.get("join", ", ")),
                 decimal=decimal,
                 date_format=spec.get("date_format"),
+                map={str(k): v for k, v in mapping.items()} if mapping else None,
             )
         )
     return fields
@@ -341,8 +378,11 @@ def parse_config(data: Any, source_path: Path | None = None) -> ScraperConfig:
     for fname in cfg.dedupe_by or []:
         if fname not in known:
             raise ConfigError(f"'dedupe_by' menyebut field '{fname}' yang tidak ada.")
-    for label, fname in (("monitor.key", monitor.key), ("monitor.price", monitor.price),
-                         ("monitor.label", monitor.label)):
+    for label, fname in (
+        ("monitor.key", monitor.key),
+        ("monitor.price", monitor.price),
+        ("monitor.label", monitor.label),
+    ):
         if fname and fname not in known:
             raise ConfigError(f"'{label}' menyebut field '{fname}' yang tidak ada.")
     for fname in monitor.track:

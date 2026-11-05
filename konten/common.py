@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 import sys
 import threading
@@ -90,7 +91,7 @@ def split_list(value: Any) -> list[str]:
     """Turn ``"a; b, c"`` / list / NaN into a clean list of strings."""
     if value is None:
         return []
-    if isinstance(value, float) and value != value:  # NaN
+    if isinstance(value, float) and math.isnan(value):
         return []
     if isinstance(value, (list, tuple)):
         items: list[str] = []
@@ -106,10 +107,10 @@ def split_list(value: Any) -> list[str]:
 
 def format_rupiah(value: Any) -> str:
     """``89000`` / ``"89.000"`` / ``"Rp 89rb"`` -> ``"Rp89.000"``. Returns "" if unparseable."""
-    if value is None or (isinstance(value, float) and value != value):
+    if value is None or (isinstance(value, float) and math.isnan(value)):
         return ""
     if isinstance(value, (int, float)):
-        num = int(round(value))
+        num = round(value)
     else:
         text = str(value).lower().replace("rp", "").strip()
         mult = 1
@@ -176,7 +177,7 @@ def read_table(path: str | Path):
             raise KontenError(f"Format file tidak didukung: {suffix} (pakai .csv atau .xlsx)")
     except KontenError:
         raise
-    except Exception as exc:  # noqa: BLE001 - surface any parse error in Indonesian
+    except Exception as exc:
         raise KontenError(f"Gagal membaca {p.name}: {exc}") from exc
     df.columns = [str(c).strip() for c in df.columns]
     df = df.dropna(how="all").fillna("")

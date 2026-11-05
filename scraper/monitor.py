@@ -19,8 +19,16 @@ CHANGE_LABELS = {
     "harga_turun": "Harga turun",
     "berubah": "Field berubah",
 }
-REPORT_COLUMNS = ["jenis", "kunci", "nama", "field", "nilai_lama", "nilai_baru", "selisih",
-                  "persen"]
+REPORT_COLUMNS = [
+    "jenis",
+    "kunci",
+    "nama",
+    "field",
+    "nilai_lama",
+    "nilai_baru",
+    "selisih",
+    "persen",
+]
 
 
 @dataclass
@@ -39,10 +47,24 @@ def resolve_fields(cfg: ScraperConfig) -> MonitorFields:
     if not price:
         price = next((f.name for f in specs if f.type == "price_idr"), None)
     if not price:
-        price = next((f.name for f in specs if f.type in ("int", "float") and
-                      any(w in f.name.lower() for w in ("harga", "price", "gaji"))), None)
-    label = m.label or next((f.name for f in specs if f.type == "text" and f.name.lower() in
-                             ("nama", "judul", "title", "name", "posisi", "produk")), None)
+        price = next(
+            (
+                f.name
+                for f in specs
+                if f.type in ("int", "float")
+                and any(w in f.name.lower() for w in ("harga", "price", "gaji"))
+            ),
+            None,
+        )
+    label = m.label or next(
+        (
+            f.name
+            for f in specs
+            if f.type == "text"
+            and f.name.lower() in ("nama", "judul", "title", "name", "posisi", "produk")
+        ),
+        None,
+    )
     if not label:
         label = next((f.name for f in specs if f.type == "text"), None)
     if m.key:
@@ -51,8 +73,9 @@ def resolve_fields(cfg: ScraperConfig) -> MonitorFields:
         key = list(cfg.dedupe_by)
     else:
         url_fields = [f.name for f in cfg.fields if f.type == "url"]
-        key = url_fields[:1] or [f.name for f in cfg.fields
-                                 if f.name != price and f.name not in m.track]
+        key = url_fields[:1] or [
+            f.name for f in cfg.fields if f.name != price and f.name not in m.track
+        ]
     return MonitorFields(key=key, price=price, label=label, track=list(m.track))
 
 
@@ -64,6 +87,7 @@ def make_key(item: dict, fields: list[str]) -> str:
 
 
 # --------------------------------------------------------------------------- history
+
 
 class History:
     """SQLite store of every monitored run."""
@@ -96,7 +120,7 @@ class History:
     def close(self) -> None:
         self.conn.close()
 
-    def __enter__(self) -> History:
+    def __enter__(self):
         return self
 
     def __exit__(self, *exc) -> None:
@@ -112,8 +136,14 @@ class History:
         rows = self.conn.execute("SELECT item_key, data FROM items WHERE run_id = ?", (run_id,))
         return {key: json.loads(data) for key, data in rows}
 
-    def save_run(self, config: str, items: list[dict], fields: MonitorFields,
-                 error_count: int = 0, run_at: str | None = None) -> int:
+    def save_run(
+        self,
+        config: str,
+        items: list[dict],
+        fields: MonitorFields,
+        error_count: int = 0,
+        run_at: str | None = None,
+    ) -> int:
         run_at = run_at or datetime.now().isoformat(timespec="seconds")
         with self.conn:
             cur = self.conn.execute(
@@ -124,10 +154,13 @@ class History:
             self.conn.executemany(
                 "INSERT INTO items (run_id, item_key, label, price, data) VALUES (?,?,?,?,?)",
                 [
-                    (run_id, make_key(it, fields.key),
-                     None if not fields.label else _str(it.get(fields.label)),
-                     _num(it.get(fields.price)) if fields.price else None,
-                     json.dumps(it, ensure_ascii=False, default=str))
+                    (
+                        run_id,
+                        make_key(it, fields.key),
+                        None if not fields.label else _str(it.get(fields.label)),
+                        _num(it.get(fields.price)) if fields.price else None,
+                        json.dumps(it, ensure_ascii=False, default=str),
+                    )
                     for it in items
                 ],
             )
@@ -135,8 +168,12 @@ class History:
 
     def prune(self, config: str, keep: int) -> int:
         """Keep only the newest `keep` runs of a config. Returns runs deleted."""
-        ids = [r[0] for r in self.conn.execute(
-            "SELECT id FROM runs WHERE config = ? ORDER BY id DESC", (config,))]
+        ids = [
+            r[0]
+            for r in self.conn.execute(
+                "SELECT id FROM runs WHERE config = ? ORDER BY id DESC", (config,)
+            )
+        ]
         old = ids[keep:]
         if not old:
             return 0
@@ -164,6 +201,7 @@ def _str(value: Any) -> str | None:
 
 # --------------------------------------------------------------------------- diff
 
+
 @dataclass
 class ChangeReport:
     config: str
@@ -187,8 +225,10 @@ class ChangeReport:
 
     def summary_text(self) -> str:
         if self.first_run:
-            return (f"Run pertama untuk '{self.config}': {self.current_count} item disimpan "
-                    "sebagai acuan. Perubahan akan terdeteksi mulai run berikutnya.")
+            return (
+                f"Run pertama untuk '{self.config}': {self.current_count} item disimpan "
+                "sebagai acuan. Perubahan akan terdeteksi mulai run berikutnya."
+            )
         lines = [
             f"Perbandingan '{self.config}': {self.previous_run_at} -> {self.current_run_at}",
             f"  Jumlah item       : {self.previous_count} -> {self.current_count}",
@@ -204,12 +244,23 @@ class ChangeReport:
         return "\n".join(lines)
 
 
-def compare(previous: dict[str, dict], current: list[dict], fields: MonitorFields,
-            *, config: str, previous_run_at: str | None, current_run_at: str,
-            min_change_pct: float = 0.0) -> ChangeReport:
-    report = ChangeReport(config=config, previous_run_at=previous_run_at,
-                          current_run_at=current_run_at, previous_count=len(previous),
-                          current_count=len(current))
+def compare(
+    previous: dict[str, dict],
+    current: list[dict],
+    fields: MonitorFields,
+    *,
+    config: str,
+    previous_run_at: str | None,
+    current_run_at: str,
+    min_change_pct: float = 0.0,
+) -> ChangeReport:
+    report = ChangeReport(
+        config=config,
+        previous_run_at=previous_run_at,
+        current_run_at=current_run_at,
+        previous_count=len(previous),
+        current_count=len(current),
+    )
     if previous_run_at is None:
         return report
 
@@ -226,26 +277,30 @@ def compare(previous: dict[str, dict], current: list[dict], fields: MonitorField
     for key, item in cur_map.items():
         old = previous.get(key)
         if old is None:
-            report.changes.append(_row("baru", key, label_of(item), fields.price,
-                                       None, price_of(item)))
+            report.changes.append(
+                _row("baru", key, label_of(item), fields.price, None, price_of(item))
+            )
             continue
         old_price, new_price = price_of(old), price_of(item)
         if old_price is not None and new_price is not None and old_price != new_price:
             pct = (new_price - old_price) / old_price * 100 if old_price else None
             if pct is None or abs(pct) >= min_change_pct:
                 kind = "harga_naik" if new_price > old_price else "harga_turun"
-                report.changes.append(_row(kind, key, label_of(item), fields.price,
-                                           old_price, new_price))
+                report.changes.append(
+                    _row(kind, key, label_of(item), fields.price, old_price, new_price)
+                )
         for fname in fields.track:
             if fname == fields.price:
                 continue
             if old.get(fname) != item.get(fname):
-                report.changes.append(_row("berubah", key, label_of(item), fname,
-                                           old.get(fname), item.get(fname)))
+                report.changes.append(
+                    _row("berubah", key, label_of(item), fname, old.get(fname), item.get(fname))
+                )
     for key, old in previous.items():
         if key not in cur_map:
-            report.changes.append(_row("hilang", key, label_of(old), fields.price,
-                                       price_of(old), None))
+            report.changes.append(
+                _row("hilang", key, label_of(old), fields.price, price_of(old), None)
+            )
 
     order = {"harga_turun": 0, "harga_naik": 1, "baru": 2, "hilang": 3, "berubah": 4}
     report.changes.sort(key=lambda c: (order[c["jenis"]], str(c["nama"] or c["kunci"])))
@@ -257,9 +312,16 @@ def _row(kind: str, key: str, label: Any, fname: str | None, old: Any, new: Any)
     if isinstance(old, (int, float)) and isinstance(new, (int, float)):
         diff = new - old
         pct = round(diff / old * 100, 2) if old else None
-    return {"jenis": kind, "kunci": key, "nama": label, "field": fname,
-            "nilai_lama": _tidy(old), "nilai_baru": _tidy(new), "selisih": _tidy(diff),
-            "persen": pct}
+    return {
+        "jenis": kind,
+        "kunci": key,
+        "nama": label,
+        "field": fname,
+        "nilai_lama": _tidy(old),
+        "nilai_baru": _tidy(new),
+        "selisih": _tidy(diff),
+        "persen": pct,
+    }
 
 
 def _tidy(value: Any) -> Any:
@@ -269,6 +331,7 @@ def _tidy(value: Any) -> Any:
 
 
 # --------------------------------------------------------------------------- report files
+
 
 def write_report(report: ChangeReport, path: str | Path) -> Path:
     path = Path(path)
@@ -284,18 +347,28 @@ def write_report(report: ChangeReport, path: str | Path) -> Path:
 
         with pd.ExcelWriter(path, engine="openpyxl") as writer:
             pd.DataFrame(report.changes, columns=REPORT_COLUMNS).to_excel(
-                writer, index=False, sheet_name="perubahan")
+                writer, index=False, sheet_name="perubahan"
+            )
             pd.DataFrame(_summary_rows(report), columns=["keterangan", "nilai"]).to_excel(
-                writer, index=False, sheet_name="ringkasan")
+                writer, index=False, sheet_name="ringkasan"
+            )
     elif ext == ".json":
-        path.write_text(json.dumps({
-            "config": report.config,
-            "run_sebelumnya": report.previous_run_at,
-            "run_sekarang": report.current_run_at,
-            "ringkasan": dict(_summary_rows(report)),
-            "peringatan": report.warnings,
-            "perubahan": report.changes,
-        }, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+        path.write_text(
+            json.dumps(
+                {
+                    "config": report.config,
+                    "run_sebelumnya": report.previous_run_at,
+                    "run_sekarang": report.current_run_at,
+                    "ringkasan": dict(_summary_rows(report)),
+                    "peringatan": report.warnings,
+                    "perubahan": report.changes,
+                },
+                ensure_ascii=False,
+                indent=2,
+                default=str,
+            ),
+            encoding="utf-8",
+        )
     elif ext == ".md":
         path.write_text(_markdown(report), encoding="utf-8")
     else:
@@ -329,10 +402,15 @@ def _markdown(report: ChangeReport) -> str:
         out += [report.summary_text(), ""]
         return "\n".join(out)
     out += [
-        f"Run sebelumnya: **{report.previous_run_at}** | run sekarang: "
-        f"**{report.current_run_at}**", "",
-        "| Jenis | Jumlah |", "|---|---|",
-        *[f"| {label} | {report.count(kind)} |" for kind, label in CHANGE_LABELS.items()], "",
+        (
+            f"Run sebelumnya: **{report.previous_run_at}** | run sekarang: "
+            f"**{report.current_run_at}**"
+        ),
+        "",
+        "| Jenis | Jumlah |",
+        "|---|---|",
+        *[f"| {label} | {report.count(kind)} |" for kind, label in CHANGE_LABELS.items()],
+        "",
     ]
     for w in report.warnings:
         out.append(f"> **Peringatan:** {w}")
@@ -340,9 +418,14 @@ def _markdown(report: ChangeReport) -> str:
         out += ["", "| Jenis | Nama | Lama | Baru | Selisih | % |", "|---|---|---|---|---|---|"]
         for c in report.changes:
             pct = "-" if c["persen"] is None else f"{c['persen']:+.1f}%".replace(".", ",")
-            out.append(f"| {CHANGE_LABELS[c['jenis']]} | {_fmt(c['nama'] or c['kunci'])} | "
-                       f"{_fmt(c['nilai_lama'])} | {_fmt(c['nilai_baru'])} | "
-                       f"{_fmt(c['selisih'])} | {pct} |")
+            kind = CHANGE_LABELS[c["jenis"]]
+            if c["jenis"] == "berubah":
+                kind += f" ({c['field']})"
+            out.append(
+                f"| {kind} | {_fmt(c['nama'] or c['kunci'])} | "
+                f"{_fmt(c['nilai_lama'])} | {_fmt(c['nilai_baru'])} | "
+                f"{_fmt(c['selisih'])} | {pct} |"
+            )
     else:
         out.append("Tidak ada perubahan.")
     return "\n".join(out) + "\n"

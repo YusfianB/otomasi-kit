@@ -1,0 +1,90 @@
+"""Reminders stored in a JSON file so they survive a restart."""
+
+from __future__ import annotations
+
+import json
+import re
+from dataclasses import asdict, dataclass
+from datetime import datetime, timedelta
+from pathlib import Path
+
+UNITS = {"m": "minutes", "menit": "minutes", "j": "hours", "jam": "hours", "h": "days",
+         "hari": "days"}
+DURATION_RE = re.compile(r"^(\d+)\s*(m|menit|j|jam|h|hari)$", re.IGNORECASE)
+CLOCK_RE = re.compile(r"^(\d{1,2})[:.](\d{2})$")
+
+
+@dataclass
+class Reminder:
+    id: int
+    chat_id: int
+    due: str  # ISO timestamp
+    text: str
+
+    @property
+    def due_at(self) -> datetime:
+        return datetime.fromisoformat(self.due)
+
+
+def parse_when(spec: str, now: datetime) -> datetime | None:
+    """``10m``/``10menit``, ``2j``/``2jam``, ``1h``/``1hari`` or a clock time ``07:30``."""
+    spec = spec.strip().lower()
+    m = DURATION_RE.match(spec)
+    if m:
+        amount, unit = int(m.group(1)), UNITS[m.group(2)]
+        if amount <= 0:
+            return None
+        return now + timedelta(**{unit: amount})
+    m = CLOCK_RE.match(spec)
+    if m:
+        hour, minute = int(m.group(1)), int(m.group(2))
+        if hour > 23 or minute > 59:
+            return None
+        due = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        return due if due > now else due + timedelta(days=1)
+    return None
+
+
+class ReminderStore:
+    def __init__(self, path: Path):
+        self.path = Path(path)
+        self.items: list[Reminder] = []
+        if self.path.is_file():
+            raw = json.loads(self.path.read_text(encoding="utf-8") or "[]")
+            self.items = [Reminder(**r) for r in raw]
+
+    def _save(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.path.with_suffix(".tmp")
+        tmp.write_text(json.dumps([asdict(r) for r in self.items], indent=2), encoding="utf-8")
+        tmp.replace(self.path)
+
+    def add(self, chat_id: int, due: datetime, text: str) -> Reminder:
+        new_id = max((r.id for r in self.items), default=0) + 1
+        item = Reminder(new_id, chat_id, due.isoformat(timespec="seconds"), text)
+        self.items.append(item)
+        self._save()
+        return item
+
+    def for_chat(self, chat_id: int) -> list[Reminder]:
+        return sorted((r for r in self.items if r.chat_id == chat_id), key=lambda r: r.due)
+
+    def cancel(self, chat_id: int, reminder_id: int) -> bool:
+        before = len(self.items)
+        self.items = [r for r in self.items if not (r.id == reminder_id and r.chat_id == chat_id)]
+        if len(self.items) != before:
+            self._save()
+            return True
+        return False
+
+    def pop_due(self, now: datetime) -> list[Reminder]:
+        due = [r for r in self.items if r.due_at <= now]
+        if due:
+            self.items = [r for r in self.items if r.due_at > now]
+            self._save()
+        return due
+
+    def seconds_until_next(self, now: datetime) -> float | None:
+        if not self.items:
+            return None
+        return max(0.0, min((r.due_at - now).total_seconds() for r in self.items))

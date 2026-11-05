@@ -43,7 +43,7 @@ _WEEKDAYS = (
     "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
     "mon", "tue", "wed", "thu", "fri", "sat", "sun",
 )
-_WEEKDAY_RE = re.compile(r"^(?:%s)\b[,.]?\s*" % "|".join(re.escape(w) for w in _WEEKDAYS))
+_WEEKDAY_RE = re.compile(r"^(?:{})\b[,.]?\s*".format("|".join(re.escape(w) for w in _WEEKDAYS)))
 _TIME = r"(?:[\sT,]+(?:pukul|jam)?\s*(\d{1,2})[:.](\d{2})(?:[:.](\d{2}))?(?:\s*(?:wib|wita|wit))?)?"
 _RE_YMD = re.compile(r"^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})" + _TIME + r"$")
 _RE_DMY = re.compile(r"^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2}|\d{4})" + _TIME + r"$")
@@ -137,7 +137,7 @@ def parse_number(value: Any, style: str = "id") -> float | None:
     m = _SUFFIX_RE.match(s)
     if m:
         s, multiplier = m.group(1), _MULTIPLIERS[m.group(2).lower()]
-    if s.endswith(",-") or s.endswith(".-"):  # "Rp 15.000,-"
+    if s.endswith((",-", ".-")):  # "Rp 15.000,-"
         s = s[:-2]
     s = s.replace(" ", "")
     if not _NUMERIC_BODY_RE.match(s):
@@ -239,7 +239,7 @@ _SATUAN = ["", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan
 
 def terbilang(value: Any) -> str:
     """Spell an integer in Indonesian: 1250000 -> ``"satu juta dua ratus lima puluh ribu"``."""
-    n = int(round(float(value)))
+    n = round(float(value))
     if n == 0:
         return "nol"
     if n < 0:

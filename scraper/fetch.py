@@ -22,6 +22,10 @@ RETRY_STATUS = {429, 500, 502, 503, 504}
 class FetchError(RuntimeError):
     """A page could not be fetched (message is user-facing)."""
 
+    def __init__(self, message: str, status: int | None = None) -> None:
+        super().__init__(message)
+        self.status = status
+
 
 class RobotsBlocked(FetchError):
     """robots.txt disallows this URL."""
@@ -81,6 +85,10 @@ class Fetcher:
         sleep=time.sleep,
     ) -> None:
         self.user_agent = user_agent
+        # robots.txt groups are matched by product token, e.g. "User-agent: otomasi-kit-scraper"
+        self.robots_agent = (
+            "otomasi-kit-scraper" if "otomasi-kit-scraper" in user_agent.lower() else user_agent
+        )
         self.delay = delay
         self.timeout = timeout
         self.retries = max(0, retries)
@@ -90,11 +98,13 @@ class Fetcher:
         self.render_wait = render_wait
         self.sleep = sleep
         self.session = session or requests.Session()
-        self.session.headers.update({
-            "User-Agent": user_agent,
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "id-ID,id;q=0.9,en;q=0.8",
-        })
+        self.session.headers.update(
+            {
+                "User-Agent": user_agent,
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "id-ID,id;q=0.9,en;q=0.8",
+            }
+        )
         self.session.headers.update(headers or {})
         self._robots: dict[str, urllib.robotparser.RobotFileParser | None] = {}
         self._last_request: dict[str, float] = {}
@@ -103,17 +113,17 @@ class Fetcher:
 
     @classmethod
     def from_config(cls, cfg, **overrides) -> Fetcher:
-        kwargs = dict(
-            user_agent=cfg.user_agent,
-            headers=cfg.headers,
-            delay=cfg.delay,
-            timeout=cfg.timeout,
-            retries=cfg.retries,
-            backoff=cfg.backoff,
-            respect_robots=cfg.respect_robots,
-            render=cfg.render,
-            render_wait=cfg.render_wait,
-        )
+        kwargs = {
+            "user_agent": cfg.user_agent,
+            "headers": cfg.headers,
+            "delay": cfg.delay,
+            "timeout": cfg.timeout,
+            "retries": cfg.retries,
+            "backoff": cfg.backoff,
+            "respect_robots": cfg.respect_robots,
+            "render": cfg.render,
+            "render_wait": cfg.render_wait,
+        }
         kwargs.update({k: v for k, v in overrides.items() if v is not None})
         return cls(**kwargs)
 
@@ -143,7 +153,7 @@ class Fetcher:
         if not self.respect_robots or is_local(url):
             return True
         parser = self._robots_for(url)
-        return parser is None or parser.can_fetch(self.user_agent, url)
+        return parser is None or parser.can_fetch(self.robots_agent, url)
 
     def _crawl_delay(self, url: str) -> float:
         if not self.respect_robots or is_local(url):
@@ -152,7 +162,7 @@ class Fetcher:
         if parser is None:
             return 0.0
         try:
-            value = parser.crawl_delay(self.user_agent)
+            value = parser.crawl_delay(self.robots_agent)
         except AttributeError:
             value = None
         return float(value or 0)
@@ -174,7 +184,7 @@ class Fetcher:
         if is_local(url):
             path = _file_path(url)
             if not path.exists():
-                raise FetchError(f"File tidak ditemukan: {path}")
+                raise FetchError(f"File tidak ditemukan: {path}", status=404)
             return Page(url=path.resolve().as_uri(), html=_decode(path.read_bytes(), None))
 
         if not self.allowed(url):
@@ -200,21 +210,29 @@ class Fetcher:
                     ctype = resp.headers.get("Content-Type", "")
                     if "charset=" in ctype.lower():
                         charset = resp.encoding
-                    return Page(url=resp.url, html=_decode(resp.content, charset),
-                                status=resp.status_code)
+                    return Page(
+                        url=resp.url, html=_decode(resp.content, charset), status=resp.status_code
+                    )
                 last_error = f"HTTP {resp.status_code}"
                 if resp.status_code not in RETRY_STATUS:
-                    raise FetchError(f"{last_error} saat mengambil {url}")
+                    raise FetchError(f"{last_error} saat mengambil {url}", status=resp.status_code)
                 retry_after = _retry_after_seconds(resp.headers.get("Retry-After"))
             if attempt < self.retries:
-                wait = retry_after if retry_after is not None else self.backoff * (2 ** attempt)
+                wait = retry_after if retry_after is not None else self.backoff * (2**attempt)
                 wait = min(wait, 120.0)
-                log.warning("  %s gagal (%s), coba lagi dalam %.1f detik (%d/%d)",
-                            url, last_error, wait, attempt + 1, self.retries)
+                log.warning(
+                    "  %s gagal (%s), coba lagi dalam %.1f detik (%d/%d)",
+                    url,
+                    last_error,
+                    wait,
+                    attempt + 1,
+                    self.retries,
+                )
                 if wait > 0:
                     self.sleep(wait)
-        raise FetchError(f"Gagal mengambil {url} setelah {self.retries + 1} percobaan: "
-                         f"{last_error}")
+        raise FetchError(
+            f"Gagal mengambil {url} setelah {self.retries + 1} percobaan: {last_error}"
+        )
 
     def _get_renderer(self):
         if self._renderer is None:
@@ -247,17 +265,18 @@ class JsRenderer:
 
     def __init__(self, user_agent: str, headers: dict[str, str]) -> None:
         try:
+            from playwright.sync_api import Error as PlaywrightError
             from playwright.sync_api import sync_playwright
         except ImportError:
             raise FetchError(
                 "Mode --render js butuh Playwright. Pasang dulu:\n"
                 "  pip install playwright\n  playwright install chromium"
             ) from None
+        self._error = PlaywrightError
         self._pw = sync_playwright().start()
         self._browser = self._pw.chromium.launch(headless=True)
         extra = {k: v for k, v in headers.items() if k.lower() not in ("user-agent",)}
-        self._context = self._browser.new_context(user_agent=user_agent,
-                                                  extra_http_headers=extra)
+        self._context = self._browser.new_context(user_agent=user_agent, extra_http_headers=extra)
 
     def get(self, url: str, timeout: float, wait_for: str | None) -> Page:
         page = self._context.new_page()
@@ -267,11 +286,9 @@ class JsRenderer:
                 page.wait_for_selector(wait_for, timeout=timeout * 1000)
             status = resp.status if resp else 200
             if status >= 400:
-                raise FetchError(f"HTTP {status} saat mengambil {url}")
+                raise FetchError(f"HTTP {status} saat mengambil {url}", status=status)
             return Page(url=page.url, html=page.content(), status=status)
-        except FetchError:
-            raise
-        except Exception as exc:  # playwright raises its own error types
+        except self._error as exc:
             raise FetchError(f"Gagal merender {url}: {exc}") from None
         finally:
             page.close()

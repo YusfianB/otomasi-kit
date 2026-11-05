@@ -1,0 +1,78 @@
+"""Main loop: long polling + reminder delivery."""
+
+from __future__ import annotations
+
+import logging
+import time
+from datetime import datetime
+
+from bot.config import ConfigError, load_config
+from bot.faq import load_faq
+from bot.handlers import Context, handle_text
+from bot.pengingat import ReminderStore
+from bot.telegram import TelegramClient, TelegramError
+
+log = logging.getLogger("bot")
+
+
+def process_update(update: dict, client: TelegramClient, ctx: Context) -> None:
+    message = update.get("message") or {}
+    text = message.get("text")
+    chat_id = (message.get("chat") or {}).get("id")
+    if not text or chat_id is None:
+        return
+    first_name = (message.get("from") or {}).get("first_name", "")
+    reply = handle_text(text, chat_id, ctx, first_name)
+    if reply:
+        client.send_message(chat_id, reply)
+
+
+def deliver_reminders(client: TelegramClient, ctx: Context) -> None:
+    for r in ctx.reminders.pop_due(datetime.now()):
+        try:
+            client.send_message(r.chat_id, f"PENGINGAT: {r.text}")
+        except TelegramError as exc:
+            log.warning("Gagal kirim pengingat #%s: %s", r.id, exc)
+
+
+def main() -> int:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    try:
+        config = load_config()
+    except ConfigError as exc:
+        log.error("%s", exc)
+        return 2
+    client = TelegramClient(config.token)
+    ctx = Context(
+        bot_name=config.bot_name,
+        faq=load_faq(config.faq_file),
+        reminders=ReminderStore(config.data_dir / "pengingat.json"),
+    )
+    try:
+        me = client.get_me()
+    except TelegramError as exc:
+        log.error("Token tidak valid atau Telegram tidak bisa diakses: %s", exc)
+        return 1
+    log.info("Bot @%s berjalan (%d FAQ). Tekan Ctrl+C untuk berhenti.",
+             me.get("username"), len(ctx.faq))
+
+    offset = None
+    while True:
+        try:
+            deliver_reminders(client, ctx)
+            wait = ctx.reminders.seconds_until_next(datetime.now())
+            timeout = config.poll_timeout
+            if wait is not None:  # wake up in time for the next reminder
+                timeout = max(1, min(config.poll_timeout, int(wait)))
+            for update in client.get_updates(offset, timeout=timeout):
+                offset = update["update_id"] + 1
+                try:
+                    process_update(update, client, ctx)
+                except TelegramError as exc:
+                    log.warning("Gagal membalas: %s", exc)
+        except TelegramError as exc:
+            log.warning("%s - coba lagi dalam 5 detik", exc)
+            time.sleep(5)
+        except KeyboardInterrupt:
+            log.info("Berhenti.")
+            return 0

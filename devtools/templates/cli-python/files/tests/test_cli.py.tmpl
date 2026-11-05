@@ -1,0 +1,39 @@
+import json
+
+import pytest
+
+from {{ paket }}.cli import main
+from {{ paket }}.core import count_file, greet
+
+
+def test_greet_repeat():
+    assert greet("Budi", "Halo", 2) == ["Halo, Budi!", "Halo, Budi!"]
+
+
+def test_greet_invalid_repeat():
+    with pytest.raises(ValueError):
+        greet("Budi", repeat=0)
+
+
+def test_cli_sapa(capsys, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    assert main(["sapa", "Siti", "--ulang", "2"]) == 0
+    assert capsys.readouterr().out.splitlines() == ["Halo, Siti!", "Halo, Siti!"]
+
+
+def test_cli_hitung_json(capsys, tmp_path):
+    f = tmp_path / "a.txt"
+    f.write_text("satu dua\ntiga\n", encoding="utf-8")
+    assert main(["hitung", str(f), "--json"]) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data[0]["baris"] == 2 and data[0]["kata"] == 3
+    assert count_file(f).chars == 14
+
+
+def test_cli_hitung_missing_file(tmp_path):
+    assert main(["hitung", str(tmp_path / "tidak-ada.txt")]) == 1
+
+
+def test_cli_no_command_prints_help(capsys):
+    assert main([]) == 0
+    assert "usage" in capsys.readouterr().out.lower()

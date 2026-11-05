@@ -1,0 +1,32 @@
+from datetime import datetime
+
+from bot.pengingat import ReminderStore, parse_when
+
+NOW = datetime(2026, 1, 5, 21, 0, 0)
+
+
+def test_parse_durations():
+    assert parse_when("10m", NOW) == datetime(2026, 1, 5, 21, 10)
+    assert parse_when("2jam", NOW) == datetime(2026, 1, 5, 23, 0)
+    assert parse_when("1h", NOW) == datetime(2026, 1, 6, 21, 0)
+    assert parse_when("0m", NOW) is None
+    assert parse_when("besok", NOW) is None
+
+
+def test_parse_clock_rolls_to_tomorrow():
+    assert parse_when("07:30", NOW) == datetime(2026, 1, 6, 7, 30)
+    assert parse_when("22.15", NOW) == datetime(2026, 1, 5, 22, 15)
+    assert parse_when("25:00", NOW) is None
+
+
+def test_store_persists_and_pops(tmp_path):
+    path = tmp_path / "r.json"
+    store = ReminderStore(path)
+    store.add(1, datetime(2026, 1, 5, 21, 5), "minum obat")
+    store.add(1, datetime(2026, 1, 6, 8, 0), "rapat")
+    reloaded = ReminderStore(path)
+    assert [r.text for r in reloaded.for_chat(1)] == ["minum obat", "rapat"]
+    assert reloaded.seconds_until_next(NOW) == 300
+    due = reloaded.pop_due(datetime(2026, 1, 5, 21, 6))
+    assert [r.text for r in due] == ["minum obat"]
+    assert len(ReminderStore(path).items) == 1

@@ -1,0 +1,27 @@
+from {{ paket }}.cli import main
+from {{ paket }}.config import ENV_VAR, load_config
+
+
+def test_defaults_when_no_file(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv(ENV_VAR, raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    config, path = load_config()
+    assert path is None
+    assert config["sapaan"] == "Halo"
+
+
+def test_file_overrides_defaults(tmp_path, monkeypatch, capsys):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text('sapaan = "Selamat pagi"\n[log]\nlevel = "WARNING"\n', encoding="utf-8")
+    monkeypatch.setenv(ENV_VAR, str(cfg))
+    config, path = load_config()
+    assert path == cfg
+    assert config["sapaan"] == "Selamat pagi"
+    assert config["log"]["file"] == ""  # nested defaults are kept
+    assert main(["sapa", "Andi"]) == 0
+    assert capsys.readouterr().out.strip() == "Selamat pagi, Andi!"
+
+
+def test_missing_explicit_config_is_error(tmp_path):
+    assert main(["--config", str(tmp_path / "nope.toml"), "sapa", "x"]) == 2

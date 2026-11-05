@@ -7,9 +7,10 @@ import datetime as dt
 import io
 import logging
 import math
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import pandas as pd
 
@@ -303,12 +304,18 @@ def to_excel_value(value: Any) -> Any:
 
 def write_excel(
     path: str | Path,
-    sheets: dict[str, pd.DataFrame],
+    sheets: dict[str, Any],
     money_columns: set[str] | None = None,
     percent_columns: set[str] | None = None,
-    index: bool = False,
+    images: dict[str, list[Path]] | None = None,
 ) -> Path:
-    """Write several DataFrames into one nicely formatted workbook."""
+    """Write a formatted workbook.
+
+    ``sheets`` maps sheet name -> DataFrame, or -> list of ``(title, DataFrame)`` blocks that are
+    stacked vertically on the same sheet. ``images`` maps sheet name -> PNG files to embed.
+    Money columns get a ``"Rp" #,##0`` format (guessed from the column name when
+    ``money_columns`` is None), percent columns ``0.0%``, dates ``dd/mm/yyyy``.
+    """
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
@@ -319,33 +326,63 @@ def write_excel(
     wb.remove(wb.active)
     header_font = Font(bold=True, color="FFFFFF")
     header_fill = PatternFill("solid", fgColor="1F4E78")
-    for sheet_name, df in sheets.items():
+    title_font = Font(bold=True, size=12, color="1F4E78")
+
+    for sheet_name, content in sheets.items():
         ws = wb.create_sheet(safe_sheet_name(sheet_name, wb.sheetnames))
-        frame = df.reset_index() if index else df
-        columns = [str(c) for c in frame.columns]
-        ws.append(columns)
-        for cell in ws[1]:
-            cell.font, cell.fill = header_font, header_fill
-            cell.alignment = Alignment(vertical="center", wrap_text=True)
-        for row in frame.itertuples(index=False, name=None):
-            ws.append([to_excel_value(v) for v in row])
-        for ci, col in enumerate(columns, start=1):
-            series = frame.iloc[:, ci - 1]
-            letter = get_column_letter(ci)
-            fmt = _number_format(col, series, money_columns, percent_columns)
-            if fmt:
-                for (cell,) in ws.iter_rows(min_row=2, min_col=ci, max_col=ci):
-                    cell.number_format = fmt
-            sample = [col] + [_display_len(v) for v in series.head(500).tolist()]
-            width = max(len(s) if isinstance(s, str) else s for s in sample)
-            ws.column_dimensions[letter].width = min(max(width + 2, 8), 50)
-        ws.freeze_panes = "A2"
-        if len(frame) and columns:
-            ws.auto_filter.ref = ws.dimensions
+        single = isinstance(content, pd.DataFrame)
+        blocks = [(None, content)] if single else content
+        widths: dict[int, int] = {}
+        row_no = 1
+        for title, frame in blocks:
+            if title:
+                ws.cell(row=row_no, column=1, value=title).font = title_font
+                row_no += 1
+            columns = [str(c) for c in frame.columns]
+            header_row = row_no
+            for ci, col in enumerate(columns, start=1):
+                cell = ws.cell(row=row_no, column=ci, value=col)
+                cell.font, cell.fill = header_font, header_fill
+                cell.alignment = Alignment(vertical="center", wrap_text=True)
+            for values in frame.itertuples(index=False, name=None):
+                row_no += 1
+                for ci, v in enumerate(values, start=1):
+                    ws.cell(row=row_no, column=ci, value=to_excel_value(v))
+            for ci, col in enumerate(columns, start=1):
+                series = frame.iloc[:, ci - 1]
+                fmt = _number_format(col, series, money_columns, percent_columns)
+                if fmt:
+                    for r in range(header_row + 1, row_no + 1):
+                        ws.cell(row=r, column=ci).number_format = fmt
+                sample = [len(col)] + [_display_len(v) for v in series.head(500).tolist()]
+                widths[ci] = max(widths.get(ci, 0), max(sample))
+            if single:
+                ws.freeze_panes = ws.cell(row=header_row + 1, column=1)
+                if len(frame) and columns:
+                    ws.auto_filter.ref = ws.dimensions
+            row_no += 3 if not single else 1
+        for ci, width in widths.items():
+            ws.column_dimensions[get_column_letter(ci)].width = min(max(width + 2, 8), 50)
+
+    for sheet_name, files in (images or {}).items():
+        _add_images(wb, safe_sheet_name(sheet_name), files)
     if not wb.sheetnames:
         wb.create_sheet("Data")
     wb.save(path)
     return path
+
+
+def _add_images(wb, sheet_name: str, files: list[Path]) -> None:
+    from openpyxl.drawing.image import Image as XLImage
+
+    ws = wb[sheet_name] if sheet_name in wb.sheetnames else wb.create_sheet(sheet_name)
+    row = 1
+    for file in files:
+        img = XLImage(str(file))
+        scale = min(1.0, 820 / img.width)
+        img.width, img.height = int(img.width * scale), int(img.height * scale)
+        ws.add_image(img, f"A{row}")
+        row += int(img.height / 20) + 2
 
 
 def _display_len(value: Any) -> int:

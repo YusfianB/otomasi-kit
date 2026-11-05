@@ -39,8 +39,7 @@ def _matches(rel_posix: str, patterns: Iterable[str]) -> bool:
             continue
         pat = pat.rstrip("/") if pat != "/" else pat
         if "/" in pat:
-            if pat.startswith("./"):
-                pat = pat[2:]
+            pat = pat.removeprefix("./")
             if fnmatch.fnmatchcase(rel_posix, pat):
                 return True
             if pat.endswith("/**") and fnmatch.fnmatchcase(rel_posix, pat[:-3]):

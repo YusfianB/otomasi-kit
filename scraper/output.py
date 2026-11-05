@@ -39,8 +39,9 @@ def _cell(value: Any) -> Any:
     return value
 
 
-def write_items(items: list[dict], path: str | Path, columns: list[str] | None = None,
-                sheet_name: str = "data") -> Path:
+def write_items(
+    items: list[dict], path: str | Path, columns: list[str] | None = None, sheet_name: str = "data"
+) -> Path:
     path = check_output_path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     cols = _columns(items, columns)
@@ -55,19 +56,27 @@ def write_items(items: list[dict], path: str | Path, columns: list[str] | None =
     elif ext == ".xlsx":
         import pandas as pd
 
-        df = pd.DataFrame([{c: _cell(item.get(c)) for c in cols} for item in items],
-                          columns=cols)
+        df = pd.DataFrame([{c: _cell(item.get(c)) for c in cols} for item in items], columns=cols)
         with pd.ExcelWriter(path, engine="openpyxl") as writer:
             df.to_excel(writer, index=False, sheet_name=sheet_name[:31])
             _autofit(writer.sheets[sheet_name[:31]])
     elif ext == ".json":
-        path.write_text(json.dumps([{c: item.get(c) for c in cols} for item in items],
-                                   ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+        path.write_text(
+            json.dumps(
+                [{c: item.get(c) for c in cols} for item in items],
+                ensure_ascii=False,
+                indent=2,
+                default=str,
+            ),
+            encoding="utf-8",
+        )
     else:  # .jsonl
         with path.open("w", encoding="utf-8") as fh:
             for item in items:
-                fh.write(json.dumps({c: item.get(c) for c in cols}, ensure_ascii=False,
-                                    default=str) + "\n")
+                fh.write(
+                    json.dumps({c: item.get(c) for c in cols}, ensure_ascii=False, default=str)
+                    + "\n"
+                )
     return path
 
 
@@ -81,6 +90,7 @@ def _autofit(ws) -> None:
 def write_summary(summary: dict, path: str | Path) -> Path:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(summary, ensure_ascii=False, indent=2, default=str),
-                    encoding="utf-8")
+    path.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2, default=str), encoding="utf-8"
+    )
     return path

@@ -1,0 +1,41 @@
+# =============================================================================
+# Contoh: ambil data dari <script id="__NEXT_DATA__"> (situs berbasis Next.js)
+# =============================================================================
+# Situs modern sering mengirim datanya sebagai JSON di dalam <script>, lalu
+# JavaScript yang menampilkannya. Walau HTML terlihat kosong, datanya ada di sini.
+# Cara melihat: View Page Source -> cari "__NEXT_DATA__" (atau "__INITIAL_STATE__",
+# "window.__DATA__" dsb. - semua bisa dipakai lewat json_script).
+#
+#   python -m http.server 8000 -d scraper/tests/fixtures/toko
+#   python -m scraper uji scraper/contoh/produk_next_data.yaml
+
+name: toko_contoh_nextdata
+
+start_urls:
+  - http://localhost:8000/next.html
+
+json_script: 'script#__NEXT_DATA__'                       # selector CSS <script>-nya
+json_items_path: props.pageProps.initialState.search.products  # jalur ke daftar item
+
+fields:
+  id: id
+  nama: name
+  harga:
+    path: price.value
+    type: price_idr
+  harga_teks: price.text
+  toko: shop.name
+  kota: shop.city
+  terjual:
+    path: stats.sold
+    type: int              # "1,1rb terjual" -> 1100
+  link:
+    path: url
+    type: url
+
+monitor:
+  key: id
+  price: harga
+  label: nama
+
+delay: [1, 2]

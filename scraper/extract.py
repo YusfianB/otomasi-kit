@@ -18,9 +18,14 @@ from .config import FieldSpec, ScraperConfig
 # Single letters like "m"/"b" are ambiguous ("M" means miliar in Indonesian prices but
 # million in English), so only unambiguous suffixes are supported.
 _SUFFIX = {
-    "rb": 1e3, "ribu": 1e3, "k": 1e3,
-    "jt": 1e6, "juta": 1e6,
-    "miliar": 1e9, "milyar": 1e9, "triliun": 1e12,
+    "rb": 1e3,
+    "ribu": 1e3,
+    "k": 1e3,
+    "jt": 1e6,
+    "juta": 1e6,
+    "miliar": 1e9,
+    "milyar": 1e9,
+    "triliun": 1e12,
 }
 _NUM_RE = re.compile(
     r"(?P<sign>-)?(?P<num>\d[\d.,]*\d|\d)"
@@ -66,10 +71,9 @@ def parse_number(text: Any, decimal: str | None = None) -> float | None:
         return None
     suffix = (match.group("suf") or "").lower()
     num = match.group("num")
-    if suffix and decimal is None:
-        # "1,2 jt" / "1.5 juta": a single separator before a suffix is a decimal mark
-        if num.count(",") + num.count(".") == 1:
-            decimal = "," if "," in num else "."
+    # "1,2 jt" / "1.5 juta": a single separator before a suffix is a decimal mark
+    if suffix and decimal is None and num.count(",") + num.count(".") == 1:
+        decimal = "," if "," in num else "."
     try:
         value = _normalize_number(num, decimal)
     except ValueError:
@@ -83,7 +87,7 @@ def parse_number(text: Any, decimal: str | None = None) -> float | None:
 
 def to_int(text: Any, decimal: str | None = None) -> int | None:
     value = parse_number(text, decimal)
-    return None if value is None else int(round(value))
+    return None if value is None else round(value)
 
 
 def to_float(text: Any, decimal: str | None = None) -> float | None:
@@ -95,40 +99,83 @@ def to_price_idr(text: Any, decimal: str | None = None) -> int | None:
     if text is None:
         return None
     if isinstance(text, (int, float)) and not isinstance(text, bool):
-        return int(round(text))
+        return round(text)
     raw = str(text)
     # skip the currency label: "Rp1.250.000,00", "Rp. 50.000", "IDR 1,250,000"
     match = re.search(r"(?:rp\.?|idr)\s*", raw, re.IGNORECASE)
     if match:
-        raw = raw[match.end():]
+        raw = raw[match.end() :]
     value = parse_number(raw, decimal)
-    return None if value is None else int(round(value))
+    return None if value is None else round(value)
 
 
 # --------------------------------------------------------------------------- dates
 
 _MONTHS = {
-    "januari": 1, "jan": 1, "january": 1,
-    "februari": 2, "feb": 2, "pebruari": 2, "february": 2,
-    "maret": 3, "mar": 3, "march": 3,
-    "april": 4, "apr": 4,
-    "mei": 5, "may": 5,
-    "juni": 6, "jun": 6, "june": 6,
-    "juli": 7, "jul": 7, "july": 7,
-    "agustus": 8, "agu": 8, "agt": 8, "ags": 8, "aug": 8, "august": 8,
-    "september": 9, "sep": 9, "sept": 9,
-    "oktober": 10, "okt": 10, "oct": 10, "october": 10,
-    "november": 11, "nov": 11, "nopember": 11,
-    "desember": 12, "des": 12, "dec": 12, "december": 12,
+    "januari": 1,
+    "jan": 1,
+    "january": 1,
+    "februari": 2,
+    "feb": 2,
+    "pebruari": 2,
+    "february": 2,
+    "maret": 3,
+    "mar": 3,
+    "march": 3,
+    "april": 4,
+    "apr": 4,
+    "mei": 5,
+    "may": 5,
+    "juni": 6,
+    "jun": 6,
+    "june": 6,
+    "juli": 7,
+    "jul": 7,
+    "july": 7,
+    "agustus": 8,
+    "agu": 8,
+    "agt": 8,
+    "ags": 8,
+    "aug": 8,
+    "august": 8,
+    "september": 9,
+    "sep": 9,
+    "sept": 9,
+    "oktober": 10,
+    "okt": 10,
+    "oct": 10,
+    "october": 10,
+    "november": 11,
+    "nov": 11,
+    "nopember": 11,
+    "desember": 12,
+    "des": 12,
+    "dec": 12,
+    "december": 12,
 }
 _REL_UNITS = {
-    "detik": "seconds", "second": "seconds", "seconds": "seconds",
-    "menit": "minutes", "minute": "minutes", "minutes": "minutes",
-    "jam": "hours", "hour": "hours", "hours": "hours",
-    "hari": "days", "day": "days", "days": "days",
-    "minggu": "weeks", "pekan": "weeks", "week": "weeks", "weeks": "weeks",
-    "bulan": "months", "month": "months", "months": "months",
-    "tahun": "years", "year": "years", "years": "years",
+    "detik": "seconds",
+    "second": "seconds",
+    "seconds": "seconds",
+    "menit": "minutes",
+    "minute": "minutes",
+    "minutes": "minutes",
+    "jam": "hours",
+    "hour": "hours",
+    "hours": "hours",
+    "hari": "days",
+    "day": "days",
+    "days": "days",
+    "minggu": "weeks",
+    "pekan": "weeks",
+    "week": "weeks",
+    "weeks": "weeks",
+    "bulan": "months",
+    "month": "months",
+    "months": "months",
+    "tahun": "years",
+    "year": "years",
+    "years": "years",
 }
 
 
@@ -187,6 +234,7 @@ def _safe_date(y: int, m: int, d: int) -> str | None:
 
 # --------------------------------------------------------------------------- JSON helpers
 
+
 def dotted_get(obj: Any, path: str | None) -> Any:
     """Follow a simple dotted path: "offers.price", "offers.0.price", "items[2].name",
     "products.*.name". When a list meets a non-numeric key, the first element is used."""
@@ -206,7 +254,7 @@ def _walk(obj: Any, parts: list[str]) -> Any:
                 obj = list(obj.values())
             if not isinstance(obj, list):
                 return None
-            return [_walk(x, parts[i + 1:]) for x in obj]
+            return [_walk(x, parts[i + 1 :]) for x in obj]
         if isinstance(obj, list):
             if part.lstrip("-").isdigit():
                 idx = int(part)
@@ -225,10 +273,7 @@ def _walk(obj: Any, parts: list[str]) -> Any:
 def load_json_text(text: str) -> Any:
     """Parse JSON from a <script>, also handling "window.__STATE__ = {...};" wrappers."""
     text = text.strip()
-    if text.startswith("<!--"):
-        text = text[4:]
-    if text.endswith("-->"):
-        text = text[:-3]
+    text = text.removeprefix("<!--").removesuffix("-->")
     try:
         return json.loads(text)
     except json.JSONDecodeError:
@@ -237,7 +282,7 @@ def load_json_text(text: str) -> Any:
     if not starts:
         return None
     try:
-        value, _ = json.JSONDecoder().raw_decode(text[min(starts):])
+        value, _ = json.JSONDecoder().raw_decode(text[min(starts) :])
         return value
     except json.JSONDecodeError:
         return None
@@ -253,7 +298,7 @@ def _type_matches(obj: dict, wanted: str) -> bool:
 def json_ld_objects(soup: BeautifulSoup, wanted_type: str | None = "Product") -> list[dict]:
     """All JSON-LD objects of a type (searching @graph, ItemList, nested values)."""
     roots: list[Any] = []
-    for script in soup.find_all("script", attrs={"type": re.compile("ld\\+json", re.I)}):
+    for script in soup.find_all("script", attrs={"type": re.compile("ld\\+json", re.IGNORECASE)}):
         data = load_json_text(script.string or script.get_text() or "")
         if data is not None:
             roots.append(data)
@@ -288,6 +333,7 @@ def json_ld_objects(soup: BeautifulSoup, wanted_type: str | None = "Product") ->
 
 # --------------------------------------------------------------------------- fields
 
+
 def clean_text(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
@@ -320,6 +366,13 @@ def convert(value: Any, spec: FieldSpec, base_url: str) -> Any:
             return None
         groups = [g for g in m.groups() if g is not None]
         value = groups[0] if groups else m.group(0)
+    if spec.map:
+        key = clean_text(str(value))
+        if key in spec.map:
+            value = spec.map[key]
+        else:
+            folded = {k.casefold(): v for k, v in spec.map.items()}
+            value = folded.get(key.casefold(), value)
     t = spec.type
     if t == "text":
         return clean_text(str(value)) if isinstance(value, str) else value
@@ -341,8 +394,11 @@ def raw_field(target: Tag | dict | Any, spec: FieldSpec) -> Any:
     """Get the raw (unconverted) value of a field from an element or JSON object."""
     if isinstance(target, Tag):
         if spec.selector:
-            elements = target.select(spec.selector) if spec.multiple else [
-                target.select_one(spec.selector)]
+            elements = (
+                target.select(spec.selector)
+                if spec.multiple
+                else [target.select_one(spec.selector)]
+            )
             elements = [e for e in elements if e is not None]
         else:
             elements = [target]
@@ -359,8 +415,8 @@ def raw_field(target: Tag | dict | Any, spec: FieldSpec) -> Any:
         if not values:
             return None
         return values if spec.multiple else values[0]
-    # JSON object (JSON-LD / script data)
-    return dotted_get(target, spec.path if spec.path is not None else spec.name)
+    # JSON object (JSON-LD / script data): shorthand "nama: offers.price" means a path
+    return dotted_get(target, spec.path or spec.selector or spec.name)
 
 
 def extract_field(target: Any, spec: FieldSpec, base_url: str) -> tuple[Any, Any]:
@@ -405,13 +461,15 @@ def find_item_targets(soup: BeautifulSoup, cfg: ScraperConfig) -> list[Any]:
         script = soup.select_one(cfg.json_script)
         if script is None:
             return []
-        data = dotted_get(load_json_text(script.string or script.get_text() or ""),
-                          cfg.json_items_path)
+        data = dotted_get(
+            load_json_text(script.string or script.get_text() or ""), cfg.json_items_path
+        )
         if data is None:
             return []
         if isinstance(data, dict):
-            return list(data.values()) if all(isinstance(v, dict) for v in data.values()) \
-                else [data]
+            return (
+                list(data.values()) if all(isinstance(v, dict) for v in data.values()) else [data]
+            )
         return [x for x in data if x is not None] if isinstance(data, list) else []
     return soup.select(cfg.items) if cfg.items else []
 
@@ -437,9 +495,13 @@ def extract_items(html: str | BeautifulSoup, page_url: str, cfg: ScraperConfig) 
     return result
 
 
-def extract_detail(html: str | BeautifulSoup, page_url: str, fields: list[FieldSpec],
-                   json_ld: bool = False, json_ld_type: str | None = "Product"
-                   ) -> tuple[dict, dict]:
+def extract_detail(
+    html: str | BeautifulSoup,
+    page_url: str,
+    fields: list[FieldSpec],
+    json_ld: bool = False,
+    json_ld_type: str | None = "Product",
+) -> tuple[dict, dict]:
     """Extract fields from a whole (detail) page. Returns (values, raw values)."""
     soup = html if isinstance(html, BeautifulSoup) else make_soup(html)
     base = page_base(soup, page_url)

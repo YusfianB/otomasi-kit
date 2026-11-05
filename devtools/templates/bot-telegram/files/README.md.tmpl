@@ -1,0 +1,69 @@
+# {{ judul }}
+
+{{ deskripsi }}
+
+Dibuat oleh {{ penulis }} ({{ tahun }}) dari template `bot-telegram` otomasi-kit.
+Bot memakai *long polling* lewat `requests` (tanpa framework bot), jadi bisa jalan di laptop,
+VPS, atau Raspberry Pi tanpa perlu domain/HTTPS.
+
+## Fitur
+
+| Perintah                     | Fungsi                                           |
+|------------------------------|--------------------------------------------------|
+| `/start`                     | Sapaan                                           |
+| `/help`                      | Daftar perintah                                  |
+| `/faq` / `/faq <kata kunci>` | Daftar FAQ / cari jawaban (data di `faq.yaml`)   |
+| `/ingatkan <waktu> <pesan>`  | Pengingat: `10m`, `2j`, `1h` (hari), atau `07:30` |
+| `/pengingat`                 | Lihat pengingat aktif                            |
+| `/batal <nomor>`             | Batalkan pengingat                               |
+
+Pesan biasa (bukan perintah) otomatis dicocokkan dengan FAQ.
+
+## Menjalankan
+
+1. Buat bot di Telegram lewat [@BotFather](https://t.me/BotFather) (`/newbot`), salin tokennya.
+2. Siapkan proyek:
+
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate          # Windows: .venv\Scripts\activate
+   pip install -r requirements-dev.txt
+   cp .env.example .env               # lalu isi TELEGRAM_BOT_TOKEN
+   python -m bot
+   ```
+
+## Konfigurasi (`.env`)
+
+| Variabel             | Default    | Keterangan                          |
+|----------------------|------------|-------------------------------------|
+| `TELEGRAM_BOT_TOKEN` | (wajib)    | Token dari @BotFather               |
+| `BOT_NAME`           | {{ judul }} | Nama yang dipakai di sapaan        |
+| `FAQ_FILE`           | `faq.yaml` | File FAQ                            |
+| `DATA_DIR`           | `data`     | Tempat menyimpan `pengingat.json`   |
+| `POLL_TIMEOUT`       | `30`       | Detik long polling                  |
+
+## Mengubah FAQ
+
+Edit `faq.yaml`: setiap item punya `pertanyaan`, `jawaban`, dan `kata_kunci`. Restart bot.
+
+## Menambah perintah
+
+Buat fungsi di `bot/handlers.py` dengan signature `(args, chat_id, ctx, first_name)` yang
+mengembalikan teks balasan, lalu daftarkan di `COMMANDS`. Tambahkan tesnya di `tests/`.
+
+## Tes
+
+```bash
+pytest
+ruff check .
+```
+
+## Docker
+
+```bash
+docker build -t {{ slug }} .
+docker run -d --env-file .env -v {{ slug }}-data:/data --restart unless-stopped {{ slug }}
+```
+
+> Pengingat disimpan di `data/pengingat.json` sehingga tetap ada setelah bot restart.
+> Waktu pengingat mengikuti zona waktu server (set `TZ=Asia/Jakarta` bila perlu).
