@@ -1,0 +1,15 @@
+[project]
+name = "{{ slug }}"
+version = "0.1.0"
+description = {{ deskripsi | tojson }}
+requires-python = ">=3.11"
+authors = [{ name = {{ penulis | tojson }} }]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

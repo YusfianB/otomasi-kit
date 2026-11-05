@@ -1,0 +1,19 @@
+import pytest
+
+
+@pytest.fixture
+def client(tmp_path):
+    # Imported lazily so tests/test_db.py also runs without FastAPI installed.
+    from fastapi.testclient import TestClient
+
+    from app.config import Settings
+    from app.main import create_app
+
+    settings = Settings(
+        app_name="Tes",
+        database_path=str(tmp_path / "tes.db"),
+        cors_origins=(),
+        debug=True,
+    )
+    with TestClient(create_app(settings)) as c:
+        yield c

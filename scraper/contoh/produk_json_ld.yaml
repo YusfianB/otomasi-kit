@@ -1,0 +1,38 @@
+# =============================================================================
+# Contoh: ambil data dari JSON-LD (<script type="application/ld+json">)
+# =============================================================================
+# Banyak toko online menaruh data produk dalam format schema.org untuk Google.
+# Data ini biasanya lebih rapi daripada HTML dan tetap ada walau tampilan berubah.
+# Cek di browser: klik kanan -> View Page Source -> cari "ld+json".
+#
+#   python -m http.server 8000 -d scraper/tests/fixtures/toko
+#   python -m scraper uji scraper/contoh/produk_json_ld.yaml
+
+name: toko_contoh_jsonld
+
+start_urls:
+  - http://localhost:8000/jsonld.html
+
+json_ld: true              # item diambil dari JSON-LD, bukan dari selector CSS
+json_ld_type: Product      # hanya objek dengan "@type": "Product" (dicari di @graph/ItemList juga)
+
+fields:
+  # Di mode JSON, nilai field adalah "jalur bertitik" (dotted path) di dalam objek JSON.
+  nama: name
+  sku: sku
+  harga:
+    path: offers.price     # {"offers": {"price": 1250000}}; jika offers berupa list, dipakai yang pertama
+    type: price_idr
+  rating:
+    path: aggregateRating.ratingValue
+    type: float
+  link:
+    path: url
+    type: url
+
+monitor:
+  key: sku
+  price: harga
+  label: nama
+
+delay: [1, 2]

@@ -1,0 +1,18 @@
+"""Repository tests: only need the standard library."""
+
+from app.db import ProdukRepository, open_db
+
+
+def test_crud_repository(tmp_path):
+    with open_db(tmp_path / "x.db") as conn:
+        repo = ProdukRepository(conn)
+        item = repo.create({"nama": "Kopi", "harga": 50000})
+        assert item["id"] == 1 and item["stok"] == 0
+        assert repo.count() == 1
+        assert repo.find(q="kop")[0]["nama"] == "Kopi"
+        updated = repo.update(1, {"stok": 5, "tidak_dikenal": "x"})
+        assert updated["stok"] == 5
+        assert repo.update(99, {"stok": 1}) is None
+        assert repo.delete(1) is True
+        assert repo.delete(1) is False
+        assert repo.get(1) is None

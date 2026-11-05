@@ -1,0 +1,10 @@
+judul: API FastAPI
+deskripsi: REST API FastAPI + pydantic dengan contoh CRUD produk (SQLite), tes pytest, Dockerfile, CI
+deskripsi_default: REST API {judul} berbasis FastAPI
+langkah:
+  - cd {folder}
+  - python -m venv .venv && source .venv/bin/activate   (Windows - .venv\Scripts\activate)
+  - pip install -r requirements-dev.txt
+  - cp .env.example .env
+  - pytest
+  - uvicorn app.main:app --reload   lalu buka http://127.0.0.1:8000/docs

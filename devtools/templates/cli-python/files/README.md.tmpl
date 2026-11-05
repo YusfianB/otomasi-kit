@@ -1,0 +1,57 @@
+# {{ judul }}
+
+{{ deskripsi }}
+
+Dibuat oleh {{ penulis }} ({{ tahun }}) dari template `cli-python` otomasi-kit.
+
+## Instalasi
+
+```bash
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+```
+
+## Pemakaian
+
+```bash
+{{ slug }} --help
+{{ slug }} sapa Budi --ulang 2
+{{ slug }} hitung README.md --json
+{{ slug }} config                 # lihat config yang sedang dipakai
+python -m {{ paket }} --help      # cara lain tanpa instalasi script
+```
+
+Opsi global: `-v` (log detail), `-q` (hanya peringatan), `-c FILE` (config).
+
+## Config
+
+Config berformat TOML dicari berurutan di:
+
+1. `--config FILE`
+2. env `{{ paket | upper }}_CONFIG`
+3. `./{{ slug }}.toml`
+4. `~/.config/{{ slug }}/config.toml`
+
+Lihat `contoh-config.toml`.
+
+## Struktur
+
+```
+src/{{ paket }}/
+  cli.py      # argparse + logging (lapisan tipis)
+  core.py     # logika utama (mudah dites)
+  config.py   # pemuat config TOML
+tests/        # pytest
+```
+
+Tambahkan perintah baru di `build_parser()` dan logikanya di `core.py`.
+
+## Pengembangan
+
+```bash
+pytest          # jalankan tes
+ruff check .    # lint
+```
+
+CI GitHub Actions ada di `.github/workflows/ci.yml` (Python 3.11 & 3.13).

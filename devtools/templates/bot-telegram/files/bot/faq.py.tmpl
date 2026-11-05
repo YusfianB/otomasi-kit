@@ -1,0 +1,51 @@
+"""FAQ loaded from a YAML file."""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+from pathlib import Path
+
+import yaml
+
+
+@dataclass
+class FaqItem:
+    pertanyaan: str
+    jawaban: str
+    kata_kunci: list[str] = field(default_factory=list)
+
+
+def load_faq(path: Path) -> list[FaqItem]:
+    if not Path(path).is_file():
+        return []
+    data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+    items = data.get("faq", []) if isinstance(data, dict) else data
+    out = []
+    for item in items or []:
+        out.append(
+            FaqItem(
+                pertanyaan=str(item["pertanyaan"]).strip(),
+                jawaban=str(item["jawaban"]).strip(),
+                kata_kunci=[str(k).lower() for k in item.get("kata_kunci", [])],
+            )
+        )
+    return out
+
+
+def _words(text: str) -> set[str]:
+    return {w for w in re.findall(r"\w+", text.lower()) if len(w) > 2}
+
+
+def search(items: list[FaqItem], query: str) -> FaqItem | None:
+    """Best match by keyword hits, then by word overlap with the question."""
+    words = _words(query)
+    if not words:
+        return None
+    best, best_score = None, 0
+    for item in items:
+        score = 3 * sum(1 for k in item.kata_kunci if k in query.lower())
+        score += len(words & _words(item.pertanyaan))
+        if score > best_score:
+            best, best_score = item, score
+    return best

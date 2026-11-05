@@ -1,0 +1,84 @@
+# Generator konten sosial media terjadwal (mingguan) + bisa dijalankan manual.
+#
+# - Bila secret ANTHROPIC_API_KEY diset (Settings -> Secrets and variables -> Actions),
+#   konten dibuat dengan Claude. Bila tidak, `--engine auto` jatuh ke template engine offline.
+# - Hasil diunggah sebagai artifact "konten-sosmed-<nomor run>" (tab Actions -> run -> Artifacts).
+name: Jadwal Konten Sosmed
+
+on:
+  schedule:
+    # Setiap Senin 23:17 UTC = Selasa 06:17 WIB (menit acak agar tidak antre di jam :00).
+    - cron: "17 23 * * 1"
+  workflow_dispatch:
+    inputs:
+      profil:
+        description: "File profil brand (YAML)"
+        required: true
+        default: konten/examples/brand.yaml
+      jumlah:
+        description: "Jumlah posting per platform"
+        required: true
+        default: "14"
+      engine:
+        description: "Mesin konten"
+        required: true
+        default: auto
+        type: choice
+        options: [auto, template, ai]
+
+permissions:
+  contents: read
+
+jobs:
+  konten:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PROFIL: ${{ inputs.profil || 'konten/examples/brand.yaml' }}
+      JUMLAH: ${{ inputs.jumlah || '14' }}
+      ENGINE: ${{ inputs.engine || 'auto' }}
+      OUTPUT_DIR: output/sosmed
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependency
+        run: pip install -r requirements.txt
+
+      - name: Buat konten sosmed
+        env:
+          # Kosong bila secret tidak diset -> di-unset di bawah agar mode template dipakai.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "${ANTHROPIC_API_KEY}" ]; then
+            unset ANTHROPIC_API_KEY
+            echo "ANTHROPIC_API_KEY tidak diset -> memakai template engine (offline)."
+          fi
+          # Sesuaikan perintah ini bila opsi CLI konten berubah (lihat: python -m konten sosmed --help).
+          python -m konten sosmed \
+            --profil "$PROFIL" \
+            --jumlah "$JUMLAH" \
+            --engine "$ENGINE" \
+            --output "$OUTPUT_DIR"
+
+      - name: Ringkasan
+        if: always()
+        run: |
+          {
+            echo "## Konten sosmed"
+            echo "- Profil: \`$PROFIL\`, jumlah: $JUMLAH, engine: $ENGINE"
+            echo "- File yang dihasilkan:"
+            find "$OUTPUT_DIR" -type f 2>/dev/null | sed 's/^/  - /' || true
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: konten-sosmed-${{ github.run_number }}
+          path: ${{ env.OUTPUT_DIR }}
+          if-no-files-found: warn
+          retention-days: 30

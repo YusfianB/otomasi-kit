@@ -1,0 +1,25 @@
+"""Business logic, kept free of argparse/printing so it is easy to test."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+
+def greet(name: str, greeting: str = "Halo", repeat: int = 1) -> list[str]:
+    if repeat < 1:
+        raise ValueError("repeat harus >= 1")
+    return [f"{greeting}, {name}!" for _ in range(repeat)]
+
+
+@dataclass
+class FileStats:
+    path: Path
+    lines: int
+    words: int
+    chars: int
+
+
+def count_file(path: Path) -> FileStats:
+    text = Path(path).read_text(encoding="utf-8", errors="replace")
+    return FileStats(Path(path), len(text.splitlines()), len(text.split()), len(text))

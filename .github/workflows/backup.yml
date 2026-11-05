@@ -1,0 +1,60 @@
+# Backup mingguan isi repository memakai devtools (python -m devtools backup).
+# Arsip .tar.gz (berisi manifest SHA-256) diverifikasi lalu diunggah sebagai artifact.
+# Catatan: artifact GitHub bersifat sementara (lihat retention-days); untuk arsip jangka
+# panjang, unduh artifact atau sinkronkan ke penyimpanan lain (lihat devtools/README.md).
+name: Backup Mingguan
+
+on:
+  schedule:
+    # Setiap Minggu 20:29 UTC = Senin 03:29 WIB.
+    - cron: "29 20 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Siapkan folder tujuan (di luar workspace)
+        run: echo "TUJUAN=$RUNNER_TEMP/backup" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependency devtools
+        # devtools hanya butuh PyYAML dan Jinja2.
+        run: pip install pyyaml jinja2
+
+      - name: Buat backup
+        run: |
+          python -m devtools backup . \
+            --nama otomasi-kit \
+            --tujuan "$TUJUAN" \
+            --format tar.gz \
+            --exclude output \
+            --simpan 1
+
+      - name: Verifikasi arsip
+        run: python -m devtools verify "$TUJUAN"/otomasi-kit-*.tar.gz
+
+      - name: Ringkasan
+        run: |
+          {
+            echo "## Backup"
+            python -m devtools daftar-backup "$TUJUAN" --nama otomasi-kit
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backup-otomasi-kit-${{ github.run_number }}
+          path: ${{ env.TUJUAN }}/otomasi-kit-*.tar.gz
+          if-no-files-found: error
+          retention-days: 90
+          # Arsip sudah terkompresi.
+          compression-level: 0

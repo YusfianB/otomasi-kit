@@ -1,0 +1,48 @@
+"""Configuration from environment variables (optionally loaded from a ``.env`` file)."""
+
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+from pathlib import Path
+
+
+class ConfigError(Exception):
+    pass
+
+
+def load_dotenv(path: Path = Path(".env")) -> None:
+    """Minimal KEY=VALUE loader; existing environment variables win."""
+    if not path.is_file():
+        return
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+@dataclass(frozen=True)
+class Config:
+    token: str
+    faq_file: Path
+    data_dir: Path
+    bot_name: str
+    poll_timeout: int = 30
+
+
+def load_config() -> Config:
+    load_dotenv()
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    if not token:
+        raise ConfigError(
+            "TELEGRAM_BOT_TOKEN belum diisi. Buat bot lewat @BotFather lalu isi token di .env"
+        )
+    return Config(
+        token=token,
+        faq_file=Path(os.environ.get("FAQ_FILE", "faq.yaml")),
+        data_dir=Path(os.environ.get("DATA_DIR", "data")),
+        bot_name=os.environ.get("BOT_NAME", {{ judul | tojson }}),
+        poll_timeout=int(os.environ.get("POLL_TIMEOUT", "30")),
+    )

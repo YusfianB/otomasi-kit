@@ -1,0 +1,68 @@
+# =============================================================================
+# Contoh: books.toscrape.com (situs DEMO yang memang dibuat untuk latihan scraping)
+# =============================================================================
+#   python -m scraper uji scraper/contoh/buku_toscrape.yaml
+#   python -m scraper jalankan scraper/contoh/buku_toscrape.yaml -o buku.xlsx --max-halaman 3
+#
+# Formatnya sama dengan quotes.toscrape.com / situs katalog sederhana lain:
+# satu <article> per buku, link "next" di bawah halaman.
+
+name: buku_toscrape
+
+start_urls:
+  - https://books.toscrape.com/catalogue/page-1.html
+
+items: article.product_pod
+
+fields:
+  judul:
+    selector: h3 a
+    attr: title               # teks link terpotong ("A Light in the ..."), judul lengkap ada di title
+
+  harga:
+    selector: p.price_color
+    type: float               # "£51.77" -> 51.77 (bukan Rupiah, jadi pakai float)
+
+  rating:
+    selector: p.star-rating
+    attr: class               # "star-rating Three"
+    regex: 'star-rating (\w+)' # ambil kata setelah "star-rating"
+    map: {One: 1, Two: 2, Three: 3, Four: 4, Five: 5}
+    type: int
+
+  stok: p.instock.availability
+
+  link:
+    selector: h3 a
+    attr: href
+    type: url
+
+  gambar:
+    selector: div.image_container img
+    attr: src
+    type: url
+
+pagination:
+  next: li.next a
+  max_pages: 50
+
+# Opsional: ambil UPC & jumlah stok dari halaman detail tiap buku.
+# Hapus bagian ini jika tidak perlu (scraping jadi ~20x lebih cepat).
+detail:
+  link: link
+  fields:
+    upc: table.table-striped tr:nth-of-type(1) td
+    jumlah_stok:
+      selector: div.product_main p.availability
+      type: int               # "In stock (22 available)" -> 22
+    deskripsi: 'div#product_description + p'
+    kategori: 'ul.breadcrumb li:nth-of-type(3) a'
+
+monitor:
+  key: link
+  price: harga
+  label: judul
+
+delay: [0.5, 1.5]
+timeout: 20
+retries: 3

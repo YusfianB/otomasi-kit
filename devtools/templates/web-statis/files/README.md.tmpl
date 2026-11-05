@@ -1,0 +1,40 @@
+# {{ judul }}
+
+{{ deskripsi }}
+
+Landing page statis (HTML + CSS + JavaScript murni, tanpa build tool) dibuat oleh
+{{ penulis }} ({{ tahun }}) dari template `web-statis` otomasi-kit.
+
+## Fitur
+
+- Responsif (HP 360px sampai desktop), menu hamburger di layar kecil
+- Mode terang/gelap otomatis mengikuti sistem + tombol ganti (tersimpan di browser)
+- Bagian: hero, layanan, tentang, testimoni, FAQ, kontak, footer
+- Tombol & formulir kontak langsung membuka chat WhatsApp
+- Aksesibel: skip link, fokus keyboard terlihat, `prefers-reduced-motion`
+- Siap GitHub Pages (workflow `.github/workflows/pages.yml`)
+
+## Melihat secara lokal
+
+Buka `index.html` langsung di browser, atau jalankan server lokal:
+
+```bash
+python -m http.server 8000
+# buka http://localhost:8000
+```
+
+## Menyesuaikan
+
+1. Cari komentar `GANTI` di `index.html` lalu isi dengan data usaha Anda.
+2. Nomor WhatsApp: atribut `data-wa` pada `<body>` (format `628xxxxxxxxxx`, tanpa `+`).
+3. Warna utama: variabel `--accent` di `css/style.css` (ada versi terang dan gelap).
+4. Logo: ganti `assets/favicon.svg`; huruf di logo header ada di `.brand-mark`.
+
+## Publikasi ke GitHub Pages
+
+1. Buat repository di GitHub lalu push folder ini ke branch `main`.
+2. Buka **Settings -> Pages -> Build and deployment**, pilih **Source: GitHub Actions**.
+3. Setiap push ke `main` akan men-deploy situs ke `https://<username>.github.io/<repo>/`.
+
+Domain sendiri: tambahkan file `CNAME` berisi nama domain, lalu atur DNS sesuai
+[dokumentasi GitHub Pages](https://docs.github.com/pages/configuring-a-custom-domain-for-your-github-pages-site).

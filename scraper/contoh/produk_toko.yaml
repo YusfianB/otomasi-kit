@@ -1,0 +1,98 @@
+# =============================================================================
+# Contoh: daftar produk toko online (e-commerce umum) + halaman detail
+# =============================================================================
+# Config ini menunjuk ke "Toko Contoh", toko palsu di folder tests/fixtures/toko.
+# Coba langsung tanpa internet:
+#
+#   python -m http.server 8000 -d scraper/tests/fixtures/toko      (terminal 1)
+#   python -m scraper uji scraper/contoh/produk_toko.yaml --detail  (terminal 2)
+#   python -m scraper jalankan scraper/contoh/produk_toko.yaml -o hasil.xlsx
+#
+# Untuk toko sungguhan: ganti start_urls, lalu sesuaikan selector di bawah
+# (cara mencari selector dengan DevTools ada di scraper/README.md).
+
+name: toko_contoh
+
+# Halaman pertama yang dibuka. Boleh lebih dari satu (mis. beberapa kategori).
+start_urls:
+  - http://localhost:8000/halaman-1.html
+
+# Selector CSS untuk SATU kartu produk. Setiap elemen yang cocok = satu baris hasil.
+items: div.produk-card
+
+fields:
+  # Bentuk singkat: nama_kolom: "selector"  -> ambil teks elemen tersebut
+  nama: h3.produk-nama
+
+  # Bentuk lengkap: selector + type. price_idr paham "Rp1.250.000", "Rp 89.900",
+  # "Rp1.750.000,00", "Rp1,2 jt", "15rb", dll.
+  harga:
+    selector: span.harga-jual
+    type: price_idr
+    required: true          # kartu tanpa harga (mis. iklan) dibuang
+
+  harga_coret:
+    selector: span.harga-coret
+    type: price_idr          # kosong jika tidak ada diskon
+
+  rating:
+    selector: div.rating
+    type: float              # "★ 4,8" -> 4.8 (koma desimal ala Indonesia)
+
+  terjual:
+    selector: div.terjual
+    type: int                # "1,2rb terjual" -> 1200
+
+  lokasi: div.lokasi
+
+  sku:
+    attr: data-sku           # tanpa selector = ambil dari elemen kartu itu sendiri
+
+  link:
+    selector: a.produk-link
+    attr: href               # ambil atribut, bukan teks
+    type: url                # link relatif diubah jadi URL lengkap
+
+  gambar:
+    selector: img
+    attr: src
+    type: url
+
+# Halaman berikutnya: selector link "Berikutnya" / "Next".
+pagination:
+  next: nav.paginasi a.next
+  max_pages: 20
+
+# Ikuti link setiap produk untuk mengambil data tambahan dari halaman detailnya.
+detail:
+  link: link                 # nama field yang berisi URL detail
+  fields:
+    deskripsi: div.deskripsi
+    merek: td.merek
+    stok:
+      selector: td.stok
+      type: int              # "Stok: 25" -> 25, "Stok habis" -> kosong
+      default: 0
+    nama_toko: span.nama-toko
+    diperbarui:
+      selector: div.diperbarui
+      type: date             # "Diperbarui 3 November 2026" -> 2026-11-03
+
+# Item dianggap sama (duplikat) jika nilai field ini sama.
+dedupe_by: [link]
+
+# Untuk perintah `monitor`: kunci item dan field harga yang dibandingkan.
+monitor:
+  key: link
+  price: harga
+  label: nama
+  track: [stok]              # field lain yang perubahannya ikut dilaporkan
+
+# Sopan santun: jeda acak 1-3 detik antar-request, timeout, dan percobaan ulang.
+delay: [1, 3]
+timeout: 20
+retries: 3
+backoff: 2                   # jeda percobaan ulang: 2, 4, 8 detik
+max_items: 500
+headers:
+  Accept-Language: id-ID,id;q=0.9

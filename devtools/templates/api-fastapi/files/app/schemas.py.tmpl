@@ -1,0 +1,44 @@
+"""Pydantic models (request/response schemas)."""
+
+from __future__ import annotations
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class ProdukBase(BaseModel):
+    nama: str = Field(min_length=1, max_length=120, examples=["Kopi Gayo 250 gr"])
+    deskripsi: str | None = Field(default=None, max_length=2000)
+    harga: int = Field(ge=0, description="Harga dalam Rupiah", examples=[85000])
+    stok: int = Field(default=0, ge=0)
+
+
+class ProdukCreate(ProdukBase):
+    pass
+
+
+class ProdukUpdate(BaseModel):
+    """Partial update: only the fields that are sent are changed."""
+
+    nama: str | None = Field(default=None, min_length=1, max_length=120)
+    deskripsi: str | None = Field(default=None, max_length=2000)
+    harga: int | None = Field(default=None, ge=0)
+    stok: int | None = Field(default=None, ge=0)
+
+
+class Produk(ProdukBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    dibuat: str
+    diperbarui: str
+
+
+class DaftarProduk(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    data: list[Produk]
+
+
+class Pesan(BaseModel):
+    detail: str

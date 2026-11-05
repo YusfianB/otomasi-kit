@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+<style>
+  :root { --accent: #1F4E78; --muted: #5f6b7a; --line: #e3e7ed; --bg: #f6f8fb; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", Roboto, Arial, sans-serif; color: #1d2733;
+         background: var(--bg); line-height: 1.5; }
+  header { background: var(--accent); color: #fff; padding: 28px 32px; }
+  header h1 { margin: 0 0 4px; font-size: 26px; }
+  header p { margin: 0; opacity: .85; font-size: 14px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+  section { background: #fff; border: 1px solid var(--line); border-radius: 8px;
+            padding: 20px 24px; margin-bottom: 20px; }
+  h2 { font-size: 17px; margin: 0 0 14px; color: var(--accent); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .kpi { border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; }
+  .kpi .label { font-size: 12px; color: var(--muted); text-transform: uppercase;
+                letter-spacing: .04em; }
+  .kpi .value { font-size: 18px; font-weight: 600; margin-top: 2px; }
+  .notes { color: var(--muted); font-size: 13px; margin: 12px 0 0; padding-left: 18px; }
+  img { max-width: 100%; height: auto; display: block; margin: 0 auto 8px; }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th { background: var(--accent); color: #fff; text-align: left; padding: 7px 10px;
+       white-space: nowrap; }
+  td { padding: 6px 10px; border-bottom: 1px solid var(--line); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr:nth-child(even) td { background: #fafbfd; }
+  .more { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; padding-bottom: 24px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>{{ title }}</h1>
+  <p>Dibuat {{ generated }} dengan otomasi-kit data_tools</p>
+</header>
+<main>
+  {% if kpis %}
+  <section>
+    <h2>Ringkasan</h2>
+    <div class="kpis">
+      {% for label, value in kpis %}
+      <div class="kpi"><div class="label">{{ label }}</div><div class="value">{{ value }}</div></div>
+      {% endfor %}
+    </div>
+    {% if notes %}<ul class="notes">{% for n in notes %}<li>{{ n }}</li>{% endfor %}</ul>{% endif %}
+  </section>
+  {% endif %}
+  {% for img in images %}
+  <section>
+    <img src="data:image/png;base64,{{ img.data }}" alt="Grafik {{ img.name }}">
+  </section>
+  {% endfor %}
+  {% for t in tables %}
+  <section>
+    <h2>{{ t.title }}</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>{% for c in t.columns %}<th{% if t.numeric[loop.index0] %} class="num"{% endif %}>{{ c }}</th>{% endfor %}</tr></thead>
+        <tbody>
+          {% for row in t.rows %}
+          <tr>{% for v in row %}<td{% if t.numeric[loop.index0] %} class="num"{% endif %}>{{ v }}</td>{% endfor %}</tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if t.truncated %}<p class="more">… dan {{ t.truncated }} baris lainnya (lihat file Excel).</p>{% endif %}
+  </section>
+  {% endfor %}
+</main>
+<footer>Laporan ini dibuat otomatis. Data lengkap ada di file Excel.</footer>
+</body>
+</html>
