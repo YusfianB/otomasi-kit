@@ -39,9 +39,9 @@ jobs:
       ENGINE: ${{ inputs.engine || 'auto' }}
       OUTPUT_DIR: output/sosmed
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
           cache: pip
@@ -76,7 +76,7 @@ jobs:
             find "$OUTPUT_DIR" -type f 2>/dev/null | sed 's/^/  - /' || true
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: konten-sosmed-${{ github.run_number }}
           path: ${{ env.OUTPUT_DIR }}
