@@ -302,7 +302,8 @@ def _pdf_flowables(block: Block, width: float, cell: bool = False) -> list:
             textColor=_hex(block.color), spaceBefore=block.space_before,
             spaceAfter=0 if cell else block.space_after,
         )
-        return [Paragraph(escape(block.text).replace("\n", "<br/>"), style)]
+        content = escape(block.text).replace("\n", "<br/>") if block.text.strip() else "&nbsp;"
+        return [Paragraph(content, style)]
     if isinstance(block, Spacer):
         return [RLSpacer(1, block.height_mm * mm)]
     if isinstance(block, Rule):
@@ -575,6 +576,8 @@ def _signature(profile: dict, place_date: str, label: str = "Hormat kami,",
         Text(title if title is not None else str(profile.get("jabatan") or ""), align=align,
              space_after=0),
     ]
+    if side == "center":
+        return Table([[" ", content, " "]], widths=[0.3, 0.4, 0.3])
     row = [" ", content] if side == "right" else [content, " "]
     return Table([row], widths=[0.58, 0.42] if side == "right" else [0.42, 0.58])
 
@@ -731,7 +734,7 @@ def certificate_spec(ctx: Context, profile: dict) -> DocSpec:
     blocks.append(Spacer(6))
     sign_place = f"{place}, {format_tanggal(date)}" if place and date is not None else \
         _place_date(profile, date)
-    blocks.append(_signature(profile, sign_place, label=""))
+    blocks.append(_signature(profile, sign_place, label="", side="center"))
     return DocSpec(title=f"Sertifikat {name}", blocks=blocks, landscape=True, border=color,
                    margin_mm=20)
 
