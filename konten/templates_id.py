@@ -413,6 +413,13 @@ SOSMED: dict[str, dict[str, Any]] = {
                         "Share ke grup bestie kamu!", "Follow buat konten receh lainnya {e}"],
             },
         },
+        "topik_hook": "{Topik} {e}",
+        "topik_body": (
+            "[Tulis 2–3 kalimat penjelasan singkat tentang topik ini dengan bahasa sehari-hari.]"
+            "\n\nPoin penting:\n1. [poin pertama]\n2. [poin kedua]\n3. [poin ketiga]\n\n"
+            "Masih ada pertanyaan soal {niche}? Tulis di komentar, tim {brand} siap jawab."
+        ),
+        "topik_pendek": "{Topik}: [tulis 1 fakta/tips singkat di sini] {e}",
         "video": [
             "0–3 dtk (hook): teks besar di layar \"{hook}\" + {visual_open}",
             "3–12 dtk: {point1}",
@@ -557,6 +564,11 @@ SOSMED: dict[str, dict[str, Any]] = {
                 "cta": ["Tag a friend who can relate {e}"],
             },
         },
+        "topik_hook": "{Topik} {e}",
+        "topik_body": ("[Write 2–3 sentences explaining this topic in plain words.]\n\n"
+                       "Key points:\n1. [point one]\n2. [point two]\n3. [point three]\n\n"
+                       "Questions about {niche}? Ask in the comments, {brand} will answer."),
+        "topik_pendek": "{Topik}: [write one short fact/tip here] {e}",
         "video": [
             "0–3s (hook): big on-screen text \"{hook}\" + {visual_open}",
             "3–12s: {point1}",

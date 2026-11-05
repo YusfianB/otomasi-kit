@@ -26,7 +26,7 @@ from konten.llm import STR, LLMClient, obj, str_list
 
 PLATFORMS: dict[str, dict[str, Any]] = {
     # max_caption = characters incl. hashtags; hashtag = (min, max) count
-    "instagram": {"nama": "Instagram", "max_caption": 2200, "hashtag": (8, 12), "jam": "19.00"},
+    "instagram": {"nama": "Instagram", "max_caption": 2200, "hashtag": (5, 10), "jam": "19.00"},
     "tiktok": {"nama": "TikTok", "max_caption": 2200, "hashtag": (3, 5), "jam": "20.00"},
     "linkedin": {"nama": "LinkedIn", "max_caption": 3000, "hashtag": (3, 5), "jam": "08.00"},
     "x": {"nama": "X (Twitter)", "max_caption": 280, "hashtag": (1, 2), "jam": "12.00"},
@@ -189,42 +189,64 @@ def format_date(d: dt.date, lang: str) -> str:
 # --------------------------------------------------------------------------- planning
 
 
-def _values(brief: Brief, lang: str) -> dict[str, str]:
+def _pools(brief: Brief, lang: str) -> tuple[list[str], list[str], list[str]]:
     bank = T.SOSMED[lang]
     produk = brief.produk or [f"produk {brief.brand}" if lang == "id" else f"{brief.brand} products"]
     keunggulan = brief.keunggulan or bank["default_keunggulan"]
     masalah = brief.masalah or [m.replace("{niche}", brief.niche)
                                 for m in bank["default_masalah"]]
-    return {
-        "brand": brief.brand, "niche": brief.niche, "audiens": brief.audiens,
-        "produk_list": json.dumps(produk), "keunggulan_list": json.dumps(keunggulan),
-        "masalah_list": json.dumps(masalah), "lokasi": brief.lokasi, "promo": brief.promo,
-    }
+    return produk, keunggulan, masalah
+
+
+def allowed_variants(pb: dict[str, Any], kind: str, body_i: int) -> list[int]:
+    """Indexes of ``kind`` (hook/visual/topik) that fit body ``body_i``: the ones paired with
+    that body in ``pasangan`` plus the generic ones not paired with any body."""
+    pairs = pb.get("pasangan", {})
+    paired = {i for spec in pairs.values() for i in spec.get(kind, [])}
+    own = list(pairs.get(body_i, {}).get(kind, []))
+    generic = [i for i in range(len(pb[kind])) if i not in paired]
+    return (own + generic) or list(range(len(pb[kind])))
 
 
 def plan(brief: Brief) -> list[dict[str, Any]]:
     """Deterministic content plan: date, platform, pillar, format and the variant choices that
-    keep posts distinct (hook/body/cta indexes, focus product, etc.)."""
+    keep posts distinct (body first, then a hook/visual/topic that fits that body, always
+    preferring the least-used option so nothing repeats before the pool is exhausted)."""
     lang = brief.bahasa
     bank = T.SOSMED[lang]
     rng = random.Random(stable_seed("sosmed-plan", asdict(brief)))
     dates = schedule(brief.mulai, brief.jumlah, brief.frekuensi)
-    vals = _values(brief, lang)
-    produk = json.loads(vals["produk_list"])
-    keunggulan = json.loads(vals["keunggulan_list"])
-    masalah = json.loads(vals["masalah_list"])
+    produk, keunggulan, masalah = _pools(brief, lang)
     formal_tone = brief.tone in T.FORMAL_TONES
+    # Which templates can be filled with the data we have (promo / second product optional).
+    probe = {"brand": "x", "niche": "x", "audiens": "x", "produk": "x", "keunggulan": "x",
+             "keunggulan2": "x" if len(keunggulan) > 1 else "", "masalah": "x",
+             "produk2": "x" if len(produk) > 1 else "", "promo": brief.promo,
+             "lokasi": brief.lokasi, "link_cta": "x"}
     slots: list[dict[str, Any]] = []
     for p_index, platform in enumerate(brief.platforms):
         pillars = [p for p in PILAR_ROTATION
                    if not (p == "hiburan" and (formal_tone or platform == "linkedin"))]
         offset = (p_index * 2) % len(pillars)
         cyc: dict[str, T.Cycler] = {}
+        used: dict[str, dict[int, int]] = {}
+        edu_count = 0
 
         def pick(name: str, items: list[Any], _cyc: dict = cyc) -> Any:
             if name not in _cyc:
                 _cyc[name] = T.Cycler(rng, items)
             return _cyc[name].next()
+
+        def least_used(name: str, options: list[int], _used: dict = used) -> int:
+            counts = _used.setdefault(name, {})
+            best = min(counts.get(o, 0) for o in options)
+            choice = rng.choice([o for o in options if counts.get(o, 0) == best])
+            counts[choice] = counts.get(choice, 0) + 1
+            return choice
+
+        def fillable(pb: dict, kind: str, idxs: list[int]) -> list[int]:
+            ok = [i for i in idxs if T.usable([pb[kind][i]], probe)]
+            return ok or idxs
 
         for i, day in enumerate(dates):
             pilar = pillars[(i + offset) % len(pillars)]
@@ -234,7 +256,14 @@ def plan(brief: Brief) -> list[dict[str, Any]]:
             others = [p for p in produk if p != p1]
             k1 = pick("keunggulan", keunggulan)
             k_others = [k for k in keunggulan if k != k1]
-            slot = {
+            body_i = least_used(f"body-{pilar}",
+                                fillable(pb, "body", list(range(len(pb["body"])))))
+            user_topik = ""
+            if pilar == "edukasi" and brief.topik:
+                if edu_count % 2 == 0:  # every other education post covers a client topic
+                    user_topik = pick("user-topik", brief.topik)
+                edu_count += 1
+            slots.append({
                 "no": len(slots) + 1,
                 "tanggal": day.isoformat(),
                 "platform": platform,
@@ -245,16 +274,18 @@ def plan(brief: Brief) -> list[dict[str, Any]]:
                 "keunggulan": k1,
                 "keunggulan2": rng.choice(k_others) if k_others else "",
                 "masalah": pick("masalah", masalah),
-                "hook_i": pick(f"hook-{pilar}", list(range(len(pb["hook"])))),
-                "body_i": pick(f"body-{pilar}", list(range(len(pb["body"])))),
-                "pendek_i": pick(f"pendek-{pilar}", list(range(len(pb["pendek"])))),
-                "cta_i": pick(f"cta-{pilar}", list(range(len(pb["cta"])))),
-                "visual_i": pick(f"visual-{pilar}", list(range(len(pb["visual"])))),
-                "topik_i": pick(f"topik-{pilar}", list(range(len(pb["topik"])))),
-                "user_topik": pick("user-topik", brief.topik) if brief.topik else "",
+                "body_i": body_i,
+                "hook_i": least_used(f"hook-{pilar}", fillable(
+                    pb, "hook", allowed_variants(pb, "hook", body_i))),
+                "visual_i": least_used(f"visual-{pilar}", allowed_variants(pb, "visual", body_i)),
+                "topik_i": least_used(f"topik-{pilar}", fillable(
+                    pb, "topik", allowed_variants(pb, "topik", body_i))),
+                "pendek_i": least_used(f"pendek-{pilar}", fillable(
+                    pb, "pendek", list(range(len(pb["pendek"]))))),
+                "cta_i": least_used(f"cta-{pilar}", list(range(len(pb["cta"])))),
+                "user_topik": user_topik,
                 "emoji_seed": rng.randrange(1_000_000),
-            }
-            slots.append(slot)
+            })
     return slots
 
 
@@ -300,12 +331,10 @@ def build_hashtags(brief: Brief, platform: str, pilar: str, seed: int) -> list[s
             niche_tags.append(tag(words[0], lokasi))
             niche_tags.append(tag("umkm" if lang == "id" else "local", lokasi))
         pillar_word = {"edukasi": "tips", "promosi": "promo", "testimoni": "review",
-                       "hiburan": "lucu" if lang == "id" else "funny"}.get(pilar)
+                       }.get(pilar)
         if pillar_word:
             niche_tags.append(tag(pillar_word, words[0]) if lang == "id"
                               else tag(words[0], pillar_word))
-        if len(words) > 1:
-            niche_tags.append(tag(words[1]))
     user = [h.lstrip("#").replace(" ", "") for h in brief.hashtag]
     generic = T.SOSMED[lang]["generic_tags"][platform]
     ordered_tags = user[:2] + niche_tags[:2] + [tag(brand_tag)] + niche_tags[2:] + user[2:]
@@ -358,17 +387,25 @@ def generate_template(brief: Brief, slot: dict[str, Any]) -> dict[str, Any]:
 
     hook = T.fill(_pick_variant(pb["hook"], slot["hook_i"], values), values)
     cta = T.fill(_pick_variant(pb["cta"], slot["cta_i"], values), values)
+    topik = T.fill(_pick_variant(pb["topik"], slot["topik_i"], values), values)
     if platform == "x":
         body = T.fill(_pick_variant(pb["pendek"], slot["pendek_i"], values), values)
+        hook = re.split(r"(?<=[.!?])\s", body, maxsplit=1)[0]
     else:
         body = T.fill(_pick_variant(pb["body"], slot["body_i"], values), values)
-    topik = slot["user_topik"] if slot["pilar"] == "edukasi" and slot["user_topik"] else \
-        T.fill(_pick_variant(pb["topik"], slot["topik_i"], values), values)
+    if slot["user_topik"]:
+        # The offline engine cannot know facts about a client topic: give a ready structure
+        # with clearly marked blanks instead of inventing content.
+        topik = slot["user_topik"]
+        hook = T.fill(T.SOSMED[lang]["topik_hook"], {**values, "topik": topik})
+        body = T.fill(T.SOSMED[lang]["topik_body"], {**values, "topik": topik})
+        if platform == "x":
+            hook = body = T.fill(T.SOSMED[lang]["topik_pendek"], {**values, "topik": topik})
     visual = T.fill(_pick_variant(pb["visual"], slot["visual_i"], values), values)
     hashtags = build_hashtags(brief, platform, slot["pilar"], slot["emoji_seed"])
 
     if platform == "x":
-        caption = _fit_x(hook, body, cta, " ".join(hashtags))
+        caption = _fit_x(body, cta, " ".join(hashtags))
     else:
         caption = f"{hook}\n\n{body}\n\n{cta}"
     naskah = ""
@@ -380,9 +417,9 @@ def generate_template(brief: Brief, slot: dict[str, Any]) -> dict[str, Any]:
     }, engine="template")
 
 
-def _fit_x(hook: str, body: str, cta: str, tags: str) -> str:
+def _fit_x(body: str, cta: str, tags: str) -> str:
     limit = PLATFORMS["x"]["max_caption"] - len(tags) - 1
-    for cand in (f"{hook}\n\n{body}\n\n{cta}", f"{body}\n\n{cta}", f"{hook}\n\n{body}", body):
+    for cand in (f"{body}\n\n{cta}", body):
         if len(cand) <= limit:
             return cand
     return truncate(body, limit, "…")
