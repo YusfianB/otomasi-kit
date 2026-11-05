@@ -96,7 +96,10 @@ def process_image(src: Path, out_dir: Path, opts: ImageOptions) -> ImageResult:
         if img.width > limit[0] or img.height > limit[1]:
             img.thumbnail(limit, Image.Resampling.LANCZOS)
     if opts.watermark:
+        had_alpha = "A" in img.getbands() or "transparency" in img.info
         img = add_watermark(img, opts.watermark, opts.position, opts.opacity)
+        if not had_alpha:
+            img = img.convert("RGB")
     if pil_format == "JPEG" and img.mode not in ("RGB", "L"):
         rgba = img.convert("RGBA")
         background = Image.new("RGB", img.size, "white")

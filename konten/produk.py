@@ -20,6 +20,7 @@ from konten.common import (
     split_list,
     stable_seed,
     truncate,
+    ucfirst,
     write_excel,
 )
 from konten.llm import STR, LLMClient, obj, str_list
@@ -87,14 +88,19 @@ def _join_unique(parts: list[str], limit: int) -> str:
     seen: set[str] = set()
     out: list[str] = []
     for part in parts:
-        words = [w for w in part.split() if w.lower().strip(",") not in seen]
-        if not words:
+        all_words = part.split()
+        words = [w for w in all_words if w.lower().strip(",") not in seen]
+        # Skip parts that are mostly repeats (avoids leftovers like "Pilihan" or "Steel").
+        if not words or (out and len(words) * 2 <= len(all_words)):
+            continue
+        squashed = "".join(out).lower().replace(" ", "")
+        if out and "".join(words).lower() in squashed:  # "500 ml" vs "500ml"
             continue
         candidate = " ".join(out + words)
         if len(candidate) > limit:
             if not out:
                 return truncate(candidate, limit)
-            break
+            continue
         out.extend(words)
         seen.update(w.lower().strip(",") for w in words)
     return " ".join(out)
@@ -107,12 +113,29 @@ def _size_summary(ukuran: str) -> str:
     return ukuran if len(ukuran) <= 20 else ""
 
 
-def _benefit(feature: str, lang: str) -> str:
+CLOTHING_WORDS = ("kaos", "baju", "kemeja", "hijab", "kerudung", "celana", "dress", "gamis",
+                  "pakaian", "jaket", "hoodie", "piyama", "kaus", "shirt", "sweater", "rok")
+APPAREL_ONLY_KEYS = ("katun", "cotton", "elastis", "stretch")
+
+
+def _benefit(feature: str, lang: str, kategori: str = "") -> str:
     low = feature.lower()
+    apparel = any(w in kategori.lower() for w in CLOTHING_WORDS)
     for keys, benefit in (T.BENEFIT_ID if lang == "id" else T.BENEFIT_EN):
         if any(k in low for k in keys) and benefit not in low:
+            if not apparel and any(k in APPAREL_ONLY_KEYS for k in keys):
+                continue
             return benefit
     return ""
+
+
+FOOD_WORDS = ("camilan", "makanan", "minuman", "keripik", "kue", "snack", "sambal", "kopi",
+              "teh", "frozen", "bumbu", "cokelat", "coklat", "madu")
+
+
+def _is_food(p: dict[str, Any], kategori: str) -> bool:
+    text = f"{kategori} {p.get('nama', '')}".lower()
+    return any(w in text for w in FOOD_WORDS)
 
 
 def make_titles(p: dict[str, Any]) -> tuple[str, str]:
@@ -122,9 +145,10 @@ def make_titles(p: dict[str, Any]) -> tuple[str, str]:
     kategori = _cap_words(p.get("kategori", ""))
     short_feats = [_cap_words(f) for f in p.get("fitur", []) if len(f.split()) <= 3][:2]
     size = _size_summary(p.get("ukuran", ""))
-    lead = [merek] if merek and merek.lower() not in nama.lower() else []
-    shopee_parts = lead + [nama, bahan, kategori] + short_feats + ([size] if size else [])
-    tokped_parts = lead + [nama, bahan, kategori] + short_feats[:1]
+    brand = [merek] if merek and merek.lower() not in nama.lower() else []
+    # Key search terms first (product name + material + features), brand last.
+    shopee_parts = [nama, bahan] + short_feats + ([size] if size else []) + [kategori] + brand
+    tokped_parts = [nama, bahan] + short_feats[:1] + brand
     shopee = _join_unique([x for x in shopee_parts if x], LIMITS["judul_shopee"])
     tokped = _join_unique([x for x in tokped_parts if x], LIMITS["judul_tokopedia"])
     return shopee, tokped
@@ -141,33 +165,52 @@ def generate_template(p: dict[str, Any], lang: str = "id", tone: str = "santai")
     shopee, tokped = make_titles(p)
 
     bullets: list[str] = []
-    for f in p.get("fitur", [])[:6]:
-        b = _benefit(f, lang)
-        bullets.append(f"{T.ucfirst(f)} — {b}" if b else T.ucfirst(f))
-    if p.get("bahan") and not any(p["bahan"].lower() in b.lower() for b in bullets):
-        b = _benefit(p["bahan"], lang)
+    feats = p.get("fitur", [])[:6]
+    said = " ".join(f.lower() for f in feats)
+    used_benefits: set[str] = set()
+
+    def benefit_for(text: str) -> str:
+        b = _benefit(text, lang, f"{kategori} {p['nama']}")
+        # Skip benefits already stated by another feature or used before.
+        if not b or b in used_benefits or any(f.lower() in b for f in feats):
+            return ""
+        used_benefits.add(b)
+        return b
+
+    for f in feats:
+        b = benefit_for(f)
+        bullets.append(f"{ucfirst(f)} — {b}" if b else ucfirst(f))
+    if p.get("bahan") and p["bahan"].lower() not in said:
+        bahan = p["bahan"]
+        if sum(w[:1].isupper() for w in bahan.split()) <= 1:
+            bahan = bahan[:1].lower() + bahan[1:]
+        b = benefit_for(p["bahan"])
         label = "Bahan" if lang == "id" else "Material"
-        bullets.append(f"{label} {p['bahan']}" + (f" — {b}" if b else ""))
+        bullets.append(f"{label} {bahan}" + (f" — {b}" if b else ""))
     if not bullets:
-        bullets.append(T.ucfirst(kategori) + (" berkualitas" if lang == "id" else " of quality"))
+        bullets.append(ucfirst(kategori) + (" berkualitas" if lang == "id" else " of quality"))
 
     h = bank["headings"]
     labels = bank["spec_labels"]
     desc = [T.fill(rng.choice(bank["intro"]), values), "",
             f"{h['keunggulan']}:"] + [f"✔ {b}" for b in bullets] + ["", f"{h['spesifikasi']}:"]
     for key in ("merek", "kategori", "bahan", "ukuran", "warna", "berat"):
-        if p.get(key):
+        if p.get(key) and not (key == "berat" and p[key] == p.get("ukuran")):
             desc.append(f"- {labels[key]}: {p[key]}")
     for col, val in p.get("lainnya", {}).items():
-        desc.append(f"- {T.ucfirst(col)}: {val}")
+        desc.append(f"- {ucfirst(col)}: {val}")
     if p.get("isi_paket"):
         desc += ["", ("Isi paket" if lang == "id" else "In the box") + f": {p['isi_paket']}"]
     if lang == "id":
-        care = next((txt for key, txt in T.CARE_ID.items()
-                     if key in (p.get("bahan", "") + " " + kategori).lower()), "")
+        haystack = f"{p.get('bahan', '')} {kategori} {p['nama']}".lower()
+        care = next((txt for key, txt in T.CARE_ID.items() if key in haystack), "")
+        if not care and _is_food(p, kategori):
+            care = T.CARE_FOOD_ID
         if care:
             desc += ["", f"{h['perawatan']}:", care]
-    desc += ["", f"{h['catatan']}:"] + [f"- {n}" for n in bank["notes"][:2]]
+    food = lang == "id" and _is_food(p, kategori)
+    notes = [n for n in bank["notes"][:2] if not (food and "arna" in n)]
+    desc += ["", f"{h['catatan']}:"] + [f"- {n}" for n in notes]
     desc += ["", rng.choice(bank["closing"]) if reg["yuk"] == "yuk" or lang == "en"
              else bank["closing"][1]]
     deskripsi = truncate("\n".join(desc), LIMITS["deskripsi"])
@@ -178,6 +221,8 @@ def generate_template(p: dict[str, Any], lang: str = "id", tone: str = "santai")
         "nama_pendek": " ".join(p["nama"].lower().split()[:3]),
         "warna": (split_list(p.get("warna", "")) or [""])[0].lower(),
         "ukuran": "", "merek": p.get("merek", "").lower(),
+        "nama_lengkap": p["nama"].lower() if len(p["nama"].split()) <= 5 else "",
+        "fitur1": next((f.lower() for f in p.get("fitur", []) if len(f.split()) <= 2), ""),
     }
     for pat in bank["tag_patterns"]:
         if all(tag_vals.get(f) for f in T.fields_of(pat)):
@@ -188,9 +233,10 @@ def generate_template(p: dict[str, Any], lang: str = "id", tone: str = "santai")
     short = [b.split(" — ")[0] for b in bullets]
     f1 = short[0]
     f2 = short[1] if len(short) > 1 else (p.get("bahan") or kategori)
+    f2_lc = f2 if f2[:2].isupper() else f2[:1].lower() + f2[1:]
     promo_vals = {
         "nama": p["nama"],
-        "f1": f1, "f2": f2,
+        "f1": f1, "f2": f2, "f2_lc": f2_lc,
         "harga_txt": (f" cuma {harga}" if lang == "id" else f" for only {harga}") if harga else "",
         "harga_line": f"💰 {bank['harga']}: {harga}\n" if harga else "",
     }

@@ -281,7 +281,7 @@ def cmd_rename(args) -> int:
     print_table(["No", "Nama lama", "Nama baru", "Status"], rows)
     n_ok = sum(p.status == STATUS_OK for p in plans)
     n_conflict = sum(p.status == STATUS_CONFLICT for p in plans)
-    print(f"\n{n_ok} file akan diganti namanya, {n_conflict} bentrok, "
+    print(f"\nRingkasan: {n_ok} file diganti namanya, {n_conflict} bentrok, "
           f"{len(plans) - n_ok - n_conflict} tetap.")
     if not args.jalankan:
         print("Ini hanya PRATINJAU (dry-run). Tambahkan --jalankan untuk benar-benar mengganti nama.")
@@ -558,15 +558,34 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+class _StdoutHandler(logging.StreamHandler):
+    """Always writes to the *current* sys.stdout (works with redirection and pytest capture)."""
+
+    def __init__(self):
+        super().__init__(sys.stdout)
+
+    @property
+    def stream(self):
+        return sys.stdout
+
+    @stream.setter
+    def stream(self, _value):
+        pass
+
+
+def _setup_logging(verbose: bool) -> None:
+    log.setLevel(logging.DEBUG if verbose else logging.INFO)
+    if not any(isinstance(h, _StdoutHandler) for h in log.handlers):
+        handler = _StdoutHandler()
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        log.addHandler(handler)
+    log.propagate = False
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(message)s", stream=sys.stdout, force=True,
-    )
-    for noisy in ("matplotlib", "PIL", "fontTools"):
-        logging.getLogger(noisy).setLevel(logging.WARNING)
+    _setup_logging(args.verbose)
     if not getattr(args, "func", None):
         parser.print_help()
         return 0
@@ -581,4 +600,10 @@ def main(argv: list[str] | None = None) -> int:
     except PermissionError as exc:
         print(f"Error: tidak punya izin atau file sedang dibuka program lain: {exc.filename}",
               file=sys.stderr)
+        return 1
+    except Exception as exc:  # last resort: friendly message, details with -v
+        if args.verbose:
+            raise
+        print(f"Error tak terduga: {type(exc).__name__}: {exc}\n"
+              "Jalankan ulang dengan -v untuk melihat detail.", file=sys.stderr)
         return 1

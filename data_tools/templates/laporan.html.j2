@@ -53,8 +53,7 @@
   {% endif %}
   {% for img in images %}
   <section>
-    <h2>{{ img.name }}</h2>
-    <img src="data:image/png;base64,{{ img.data }}" alt="{{ img.name }}">
+    <img src="data:image/png;base64,{{ img.data }}" alt="Grafik {{ img.name }}">
   </section>
   {% endfor %}
   {% for t in tables %}

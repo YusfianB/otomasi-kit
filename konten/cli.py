@@ -7,7 +7,15 @@ from pathlib import Path
 from typing import Any
 
 from konten import __version__
-from konten.common import ENGINES, LANGS, FatalError, KontenError, info, read_text_file
+from konten.common import (
+    ENGINES,
+    FAILED_ITEMS,
+    LANGS,
+    FatalError,
+    KontenError,
+    info,
+    read_text_file,
+)
 from konten.llm import DEFAULT_EFFORT, DEFAULT_MODEL, EFFORTS, LLMClient, build_llm, has_api_key
 
 EPILOG = """\
@@ -121,6 +129,7 @@ def make_llm(args: argparse.Namespace, client: Any = None) -> LLMClient | None:
 def main(argv: list[str] | None = None, *, client: Any = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    FAILED_ITEMS.clear()
     if not args.perintah:
         parser.print_help()
         return 0
@@ -144,6 +153,10 @@ def main(argv: list[str] | None = None, *, client: Any = None) -> int:
         info(f"  ... dan {len(files) - 25} file lainnya")
     if llm is not None:
         info(llm.usage_summary())
+    if FAILED_ITEMS:
+        info(f"Ada {len(FAILED_ITEMS)} item gagal. Jalankan ulang perintah yang sama untuk "
+             "mencoba lagi (item yang sudah jadi tidak dibuat ulang).")
+        return 2
     return 0
 
 

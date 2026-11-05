@@ -191,7 +191,12 @@ def format_date(d: dt.date, lang: str) -> str:
 
 def _pools(brief: Brief, lang: str) -> tuple[list[str], list[str], list[str]]:
     bank = T.SOSMED[lang]
-    produk = brief.produk or [f"produk {brief.brand}" if lang == "id" else f"{brief.brand} products"]
+    service = re.search(r"\b(jasa|layanan|kursus|les|service|services|class)\b", brief.niche.lower())
+    if lang == "id":
+        default = f"layanan {brief.brand}" if service else f"produk {brief.brand}"
+    else:
+        default = f"{brief.brand} services" if service else f"{brief.brand} products"
+    produk = brief.produk or [default]
     keunggulan = brief.keunggulan or bank["default_keunggulan"]
     masalah = brief.masalah or [m.replace("{niche}", brief.niche)
                                 for m in bank["default_masalah"]]
@@ -310,13 +315,18 @@ def build_hashtags(brief: Brief, platform: str, pilar: str, seed: int) -> list[s
     lang = brief.bahasa
     lo, hi = PLATFORMS[platform]["hashtag"]
     stop = T.STOPWORDS_ID | T.STOPWORDS_EN | {"kekinian", "online", "murah"}
+    generic_heads = {"jasa", "layanan", "toko", "produk", "usaha", "bisnis", "warung", "kedai",
+                     "service", "services", "shop", "store"}
     words = [w for w in re.findall(r"[a-z0-9]+", brief.niche.lower()) if w not in stop]
+    if len(words) > 1 and words[0] in generic_heads:
+        words = words[1:]
     camel = platform == "linkedin"
+    acronyms = {"umkm": "UMKM", "ukm": "UKM", "seo": "SEO", "ai": "AI"}
 
     def tag(*parts: str) -> str:
         parts = tuple(p for p in parts if p)
         if camel:
-            return "".join(p[:1].upper() + p[1:] for p in parts)
+            return "".join(acronyms.get(p, p[:1].upper() + p[1:]) for p in parts)
         return "".join(parts).lower()
 
     brand_tag = re.sub(r"[^A-Za-z0-9]", "", brief.brand)
@@ -387,6 +397,8 @@ def generate_template(brief: Brief, slot: dict[str, Any]) -> dict[str, Any]:
 
     hook = T.fill(_pick_variant(pb["hook"], slot["hook_i"], values), values)
     cta = T.fill(_pick_variant(pb["cta"], slot["cta_i"], values), values)
+    if cta[-1:].isalnum():
+        cta += "."
     topik = T.fill(_pick_variant(pb["topik"], slot["topik_i"], values), values)
     if platform == "x":
         body = T.fill(_pick_variant(pb["pendek"], slot["pendek_i"], values), values)

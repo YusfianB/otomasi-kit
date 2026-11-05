@@ -234,7 +234,7 @@ def render_text(template: str, ctx: Context, missing: set[str] | None = None) ->
 def sanitize_filename(name: str, max_len: int = 120) -> str:
     name = INVALID_FILENAME.sub("-", name)
     name = re.sub(r"\s+", "_", name.strip())
-    name = re.sub(r"[-_]{2,}", lambda m: m.group(0)[0], name).strip("._-")
+    name = re.sub(r"[-_]{2,}", lambda m: "_" if "_" in m.group(0) else "-", name).strip("._-")
     return name[:max_len] or "dokumen"
 
 
@@ -414,6 +414,16 @@ def _docx_rule(paragraph, color: str, size: float) -> None:
     p_pr.append(borders)
 
 
+def _docx_table_width(table, total_width) -> None:
+    """Set an explicit table width (python-docx creates ``<w:tblW w:type="auto">``)."""
+    from docx.oxml.ns import qn
+
+    width = table._tbl.tblPr.find(qn("w:tblW"))
+    if width is not None:
+        width.set(qn("w:w"), str(int(total_width.twips)))
+        width.set(qn("w:type"), "dxa")
+
+
 def _docx_page_border(section, color: str) -> None:
     from docx.oxml import OxmlElement
     from docx.oxml.ns import qn
@@ -481,6 +491,9 @@ class _DocxWriter:
             table.alignment = WD_TABLE_ALIGNMENT.CENTER
             table.autofit = False
             widths = [Mm(f * width_mm) for f in block.widths]
+            for ci, column in enumerate(table.columns):  # <w:gridCol>, used by LibreOffice
+                column.width = widths[ci]
+            _docx_table_width(table, Mm(width_mm * sum(block.widths)))
             for ri, row in enumerate(block.rows):
                 for ci, value in enumerate(row):
                     cell = table.cell(ri, ci)
@@ -489,7 +502,7 @@ class _DocxWriter:
                     align = (block.align or ["left"] * ncols)[ci]
                     if isinstance(value, list):
                         for b in value:
-                            self.write(cell, b, block.widths[ci] * width_mm, cell_fresh)
+                            self.write(cell, b, block.widths[ci] * width_mm - 4, cell_fresh)
                     else:
                         header = block.header and ri == 0
                         self.write(cell, Text(

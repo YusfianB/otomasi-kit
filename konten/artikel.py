@@ -120,11 +120,15 @@ def expand_keywords(keyword: str, intent: str, audiens: str, lang: str,
     return related, list(dict.fromkeys(long_tail))[:6]
 
 
-def _meta_title(h1: str, base_title: str, lang: str) -> str:
-    if len(h1) <= 60:
+def _meta_title(h1: str, intent: str, values: dict[str, str], lang: str) -> str:
+    """First pattern that fits in 60 chars (H1 itself if it fits and starts with the keyword)."""
+    if len(h1) <= 60 and h1.lower().startswith(values["Full"].lower()):
         return h1
-    alt = f"{base_title}: {'Panduan Lengkap' if lang == 'id' else 'Complete Guide'}"
-    return alt if len(alt) <= 60 else truncate(base_title, 60)
+    for pattern in T.ARTIKEL[lang]["meta_title"][intent]:
+        cand = pattern.format(**values)
+        if len(cand) <= 60:
+            return cand
+    return truncate(values["Full"], 60)
 
 
 def generate_template(job: ArticleJob) -> dict[str, Any]:
@@ -136,16 +140,17 @@ def generate_template(job: ArticleJob) -> dict[str, Any]:
     audiens = job.audiens or bank["default_audiens"]
     related, long_tail = expand_keywords(job.keyword, intent, job.audiens, lang, year)
     rng = random.Random(stable_seed("artikel", job.keyword, lang))
-    values = {"kw": base.lower(), "Kw": title_case_id(base), "audiens": audiens,
-              "tahun": str(year)}
     full_title = title_case_id(job.keyword)
+    values = {"kw": base.lower(), "Kw": title_case_id(base), "Kwk": base[:1].upper() + base[1:],
+              "Full": full_title, "full": job.keyword.lower(), "audiens": audiens,
+              "tahun": str(year)}
     h1_pattern = rng.choice(bank["h1"][intent])
     if intent == "informasional" and job.keyword.lower().startswith(("cara ", "tips ", "how ")):
         h1 = f"{full_title}: {'Panduan Lengkap untuk Pemula' if lang == 'id' else 'A Complete Guide'}"
     else:
         h1 = h1_pattern.format(Kw=title_case_id(base), tahun=year)
     outline = []
-    body_parts = [rng.choice(bank["intro"]).format(**values), ""]
+    body_parts = [rng.choice(bank["intro"][intent]).format(**values), ""]
     for h2_t, h3s, paras in bank["sections"][intent]:
         h2 = h2_t.format(**values)
         outline.append({"h2": h2, "h3": [h.format(**values) for h in h3s]})
@@ -159,16 +164,16 @@ def generate_template(job: ArticleJob) -> dict[str, Any]:
                 body_parts += [text.format(**values), ""]
     faq = [{"pertanyaan": q.format(**values), "jawaban": a.format(**values)}
            for q, a in bank["faq"][intent]]
-    conclusion = rng.choice(bank["conclusion"]).format(**values)
+    conclusion = rng.choice(bank["conclusion"][intent]).format(**values)
     outline += [{"h2": bank["faq_title"], "h3": [f["pertanyaan"] for f in faq]},
                 {"h2": bank["conclusion_title"], "h3": []}]
-    meta_desc = truncate(rng.choice(bank["meta_desc"]).format(**values), 158)
+    meta_desc = truncate(rng.choice(bank["meta_desc"][intent]).format(**values), 158)
     return _assemble(job, {
         "intent": intent,
         "kata_kunci_terkait": related,
         "long_tail": long_tail,
         "judul_h1": h1,
-        "meta_title": _meta_title(h1, title_case_id(base), lang),
+        "meta_title": _meta_title(h1, intent, values, lang),
         "meta_description": meta_desc,
         "slug": job.slug,
         "outline": outline,

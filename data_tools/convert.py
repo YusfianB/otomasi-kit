@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import numbers
 import re
 from pathlib import Path
 
@@ -103,7 +104,7 @@ def _cell_text(col: str, value) -> str:
         return ""
     if isinstance(value, (pd.Timestamp, dt.date)):
         return format_tanggal(value)
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
+    if isinstance(value, numbers.Number) and not isinstance(value, bool):
         return format_rupiah(value) if is_money_column(col) else format_number(value)
     return str(value)
 
@@ -168,7 +169,7 @@ def table_to_pdf(inputs: list[str | Path], output: str | Path, title: str | None
             max([len(c)] + [len(_cell_text(c, v)) for v in df[c].head(200).tolist()])
             for c in df.columns
         ]
-        lengths = [min(max(n_, 3), 40) for n_ in lengths] or [1]
+        lengths = [min(max(n_, 5), 40) for n_ in lengths] or [1]
         widths = [doc.width * n_ / sum(lengths) for n_ in lengths]
         table = LongTable(data, colWidths=widths, repeatRows=1)
         table.setStyle(TableStyle([

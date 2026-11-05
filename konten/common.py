@@ -223,6 +223,10 @@ def write_excel(path: Path, sheets: dict[str, Any]) -> None:
 # --------------------------------------------------------------------------- batch runner
 
 
+# Keys of items that failed in this process (the CLI turns this into the exit code).
+FAILED_ITEMS: list[str] = []
+
+
 @dataclass
 class Item:
     key: str  # file-system safe id; result cached at <items_dir>/<key>.json
@@ -305,6 +309,7 @@ def run_batch(
                     raise
                 except Exception as exc:  # noqa: BLE001
                     _record_fail(i, item, exc)
+    FAILED_ITEMS.extend(f"{label}: {k}" for k in out.failed)
     info(
         f"Selesai {label}: {out.done} dibuat, {out.skipped} dilewati, {len(out.failed)} gagal "
         f"(total {total})."

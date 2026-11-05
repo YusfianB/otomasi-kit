@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import math
+import numbers
 import re
 from typing import Any
 
@@ -114,8 +115,8 @@ def parse_number(value: Any, style: str = "id") -> float | None:
     """
     if isinstance(value, bool):
         return None
-    if isinstance(value, (int, float)):
-        return None if (isinstance(value, float) and math.isnan(value)) else float(value)
+    if isinstance(value, numbers.Real):
+        return None if math.isnan(float(value)) else float(value)
     if not isinstance(value, str):
         return None
     s = value.strip().replace("\xa0", " ")

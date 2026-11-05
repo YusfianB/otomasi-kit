@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import datetime as dt
 import logging
+import numbers
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -161,7 +162,7 @@ def _fmt_cell(col: str, value: Any, money: set[str], percent: set[str]) -> str:
         return format_tanggal(value)
     if isinstance(value, pd.Period):
         return format_bulan(value)
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
+    if isinstance(value, numbers.Number) and not isinstance(value, bool):
         if col in percent:
             return f"{format_number(round(float(value) * 100, 1))}%"
         if col in money:
@@ -278,10 +279,10 @@ def build_report(df: pd.DataFrame, out_dir: str | Path, group_by: list[str] | No
     dates = date_columns(df)
     if dates:
         dcol = dates[0]
-        series = df.set_index(dcol)[first].astype(float) if first else df.set_index(dcol)[dcol]
+        values_ = df[first].astype(float).to_numpy() if first else [1.0] * len(df)
+        series = pd.Series(values_, index=pd.DatetimeIndex(df[dcol]))
         series = series[series.index.notna()]
-        monthly = (series.groupby(series.index.to_period("M")).sum() if first
-                   else series.groupby(series.index.to_period("M")).count())
+        monthly = series.groupby(series.index.to_period("M")).sum()
         if len(monthly) >= 1:
             chart_files.append(charts.bar_chart(
                 [format_bulan(p, short=True) for p in monthly.index], monthly.values,

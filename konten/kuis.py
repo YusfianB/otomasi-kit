@@ -13,6 +13,7 @@ import random
 import re
 from collections import Counter
 from dataclasses import asdict, dataclass, field
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
@@ -144,32 +145,75 @@ class Analysis:
     definitions: dict[int, tuple[str, str]]  # sentence index -> (term, rest)
 
 
+VERB_PREFIXES = ("meng", "meny", "mem", "men", "me", "ber", "ter", "di", "per")
+
+
+def _verbish(word: str) -> bool:
+    """Rough Indonesian verb filter (me-/ber-/di-/ter- forms, -kan suffix)."""
+    w = word.lower()
+    return w.endswith(("kan", "nya")) or (w.startswith(VERB_PREFIXES) and len(w) >= 7)
+
+
+def _proper_nouns(sentence: str) -> list[str]:
+    """Capitalised word groups that are not simply the first word of the sentence."""
+    return [m.group(1) for m in PROPER_RE.finditer(sentence)]
+
+
 def analyse(text: str, lang: str = "id") -> Analysis:
     sents = [s for s in split_sentences(text) if 5 <= len(s.split()) <= 45
              and not s.endswith((":", "?"))]
     stop = _stop(lang)
-    words = Counter()
-    doc_freq = Counter()
+    words: Counter[str] = Counter()
+    doc_freq: Counter[str] = Counter()
+    bigrams: Counter[str] = Counter()
+    heads: Counter[str] = Counter()
+    mods: Counter[str] = Counter()
+    surface: dict[str, str] = {}
     for s in sents:
-        toks = [w.lower() for w in re.findall(r"[A-Za-zÀ-ÿ][\w-]+", s)]
+        raw = re.findall(r"[A-Za-zÀ-ÿ][\w-]+", s)
+        toks = [w.lower() for w in raw]
         content = [w for w in toks if w not in stop and len(w) >= 4]
         words.update(content)
         doc_freq.update(set(content))
+        for (r1, w1), (r2, w2) in pairwise(zip(raw, toks, strict=True)):
+            if w1 not in stop and w2 not in stop and len(w1) >= 3 and len(w2) >= 3:
+                key = f"{w1} {w2}"
+                bigrams[key] += 1
+                heads[w1] += 1
+                mods[w2] += 1
+                # Keep the original casing of names inside phrases ("siklus Calvin").
+                if r2[:1].isupper() and key not in surface:
+                    surface[key] = f"{w1} {r2}"
     n = max(1, len(sents))
-    keywords = [w for w, c in words.most_common()
-                if doc_freq[w] <= max(2, int(n * 0.5)) and len(w) >= 5]
     definitions: dict[int, tuple[str, str]] = {}
-    pools: dict[str, list[str]] = {"istilah": [], "angka": [], "nama": []}
+    pools: dict[str, list[str]] = {"frasa": [], "istilah": [], "angka": [], "nama": [],
+                                   "konsep": []}
+    protected: set[str] = set()
     for i, s in enumerate(sents):
         m = DEF_RE.match(s)
         if m and len(m.group("term").split()) <= 6:
             term = m.group("term").strip()
             definitions[i] = (term, m.group("rest").rstrip(". "))
             pools["istilah"].append(term)
+            protected.update(term.lower().split())
         for m in DISEBUT_RE.finditer(s):
-            pools["istilah"].append(m.group("term").strip(" .,"))
+            term = m.group("term").strip(" .,")
+            pools["istilah"].append(term)
+            protected.update(term.lower().split())
         pools["angka"].extend(m.group(0) for m in NUM_RE.finditer(s))
-        pools["nama"].extend(m.group(1) for m in PROPER_RE.finditer(" " + s))
+        pools["nama"].extend(_proper_nouns(s))
+    phrases = [surface.get(bg, bg) for bg, c in bigrams.most_common() if c >= 2
+               and not (_verbish(bg.split()[0]) and bg.split()[0] not in protected)]
+    pools["frasa"] = phrases[:40]
+    pools["konsep"] = list(pools["istilah"])  # defined / named terms: the strongest options
+    # Single words: keep likely nouns (phrase heads such as "reaksi", "cadangan"), drop
+    # modifiers ("hijau", "utama") and verb forms.
+    name_words = {w.lower() for name in pools["nama"] for w in name.split()}
+    keywords = [w for w, c in words.most_common()
+                if doc_freq[w] <= max(2, int(n * 0.5)) and len(w) >= 5
+                and w not in name_words
+                and (w in protected or (not _verbish(w) and (
+                    heads[w] > mods[w] or (heads[w] == mods[w] == 0 and doc_freq[w] >= 2))))]
     pools["istilah"].extend(keywords[:40])
     for k, values in pools.items():
         seen, uniq = set(), []
@@ -184,15 +228,19 @@ def analyse(text: str, lang: str = "id") -> Analysis:
 def find_targets(sentence: str, idx: int, an: Analysis) -> list[Target]:
     """Candidate blanks in priority order."""
     out: list[Target] = []
+    low = sentence.lower()
     if idx in an.definitions:
         out.append(Target(an.definitions[idx][0], "istilah"))
     for m in DISEBUT_RE.finditer(sentence):
         out.append(Target(m.group("term").strip(" .,"), "istilah"))
-    for m in PROPER_RE.finditer(" " + sentence):
-        out.append(Target(m.group(1), "nama"))
+    for ph in an.pools["frasa"]:
+        m = re.search(rf"(?<!\w){re.escape(ph.lower())}(?!\w)", low)
+        if m:
+            out.append(Target(sentence[m.start():m.end()], "frasa"))
+    for name in _proper_nouns(sentence):
+        out.append(Target(name, "nama"))
     for m in NUM_RE.finditer(sentence):
         out.append(Target(m.group(0), "angka"))
-    low = sentence.lower()
     for kw in an.keywords[:30]:
         m = re.search(rf"(?<!\w){re.escape(kw)}(?!\w)", low)
         if m:
@@ -232,31 +280,70 @@ def _numeric_variants(value: str, rng: random.Random, k: int) -> list[str]:
 
 
 def distractors(target: Target, sentence: str, an: Analysis, rng: random.Random, k: int = 3,
-                level: str = "sedang") -> list[str]:
+                level: str = "sedang", strict: bool = False) -> list[str]:
+    """Wrong options of the same kind as the answer, taken from the material itself.
+
+    ``strict`` (true/false swaps) only uses defined terms, phrases, names and numbers, so a
+    false statement is plausible rather than nonsensical."""
     low_sentence = sentence.lower()
-    pool = [v for v in an.pools.get(target.kind, [])
-            if v.lower() != target.text.lower() and v.lower() not in low_sentence
-            and target.text.lower() not in v.lower() and v.lower() not in target.text.lower()]
+    t_low = target.text.lower()
+
+    def ok(v: str) -> bool:
+        v_low = v.lower()
+        return (v_low != t_low and v_low not in low_sentence and t_low not in v_low
+                and v_low not in t_low)
+
     if target.kind == "angka":
-        pool = [p for p in pool if bool(re.search(r"[a-z%°]", p)) ==
-                bool(re.search(r"[a-z%°]", target.text))]
+        unit = bool(re.search(r"[a-z%°]", t_low))
+        pool = [v for v in an.pools["angka"] if ok(v) and bool(re.search(r"[a-z%°]", v)) == unit]
+        rng.shuffle(pool)
         if len(pool) < k:
             pool += _numeric_variants(target.text, rng, k - len(pool))
-    if len(pool) < k and target.kind != "angka":
-        extra = [v for v in an.pools["istilah"] + an.pools["nama"]
-                 if v.lower() not in low_sentence and v.lower() != target.text.lower()
-                 and v not in pool]
-        pool += extra
-    if level == "sulit":  # closest in length = harder to guess
-        pool.sort(key=lambda v: (abs(len(v) - len(target.text)), rng.random()))
         chosen = pool[:k]
     else:
-        rng.shuffle(pool)
-        chosen = pool[:k]
-    # Match capitalisation style of the answer.
-    if target.text[:1].islower():
-        chosen = [c if c.isupper() else c[:1].lower() + c[1:] for c in chosen]
+        n_words = len(target.text.split())
+        if target.kind == "frasa":
+            # Siblings sharing a word ("reaksi terang" -> "reaksi gelap") are the best traps.
+            sib = [v for v in an.pools["frasa"]
+                   if ok(v) and set(v.lower().split()) & set(t_low.split())]
+            rest = [v for v in an.pools["frasa"] + an.pools["konsep"] + (
+                [] if strict else an.pools["istilah"]) if ok(v) and v not in sib]
+        elif target.kind == "nama":
+            sib = [v for v in an.pools["nama"] if ok(v)]
+            rest = [v for v in an.pools["istilah"] if ok(v) and v[:1].isupper()]
+        else:
+            sib = [v for v in an.pools["konsep"] if ok(v)]
+            rest = [] if strict else [v for v in an.pools["istilah"] + an.pools["frasa"]
+                                      if ok(v) and v not in sib]
+        rng.shuffle(sib)
+        rng.shuffle(rest)
+        pool = sib + rest
+        # Prefer options of similar shape (word count) so the answer does not stand out.
+        pool.sort(key=lambda v: abs(len(v.split()) - n_words) > 1)
+        if level == "sulit":
+            pool.sort(key=lambda v: abs(len(v) - len(target.text)))
+        chosen = []
+        for v in pool:
+            if v.lower() not in {c.lower() for c in chosen}:
+                chosen.append(v)
+            if len(chosen) == k:
+                break
     return chosen if len(chosen) == k else []
+
+
+def _style_options(options: list[str], target: Target, sentence: str,
+                   proper: set[str]) -> list[str]:
+    """Same capitalisation for every option so case does not reveal the answer."""
+    at_start = sentence.startswith(target.text)
+    out = []
+    for o in options:
+        if o in proper or o.isupper() or target.kind == "angka" or re.search(r"\s[A-Z]", o):
+            out.append(o[:1].upper() + o[1:] if at_start else o)
+        elif at_start:
+            out.append(o[:1].upper() + o[1:])
+        else:
+            out.append(o[:1].lower() + o[1:])
+    return out
 
 
 def _blank(sentence: str, target: str, blank: str) -> str:
@@ -270,6 +357,8 @@ def cause_effect(sentence: str) -> tuple[str, str] | None:
         return None
     a, conn, b = m.group("a").strip(" ,"), m.group("conn").lower(), m.group("b").strip(" .")
     effect, cause = (b, a) if conn in ("sehingga", "so that") else (a, b)
+    effect = re.sub(r"^(selain itu|oleh karena itu|namun|dengan demikian|akibatnya|"
+                    r"however|therefore),?\s+", "", effect, flags=re.IGNORECASE)
     if not effect[:2].isupper():
         effect = effect[:1].lower() + effect[1:]
     return effect, cause[:1].upper() + cause[1:] + "."
@@ -306,9 +395,12 @@ def generate_template(job: QuizJob) -> list[dict[str, Any]]:
     rng = random.Random(stable_seed("kuis", job.nama, job.materi[:5000], job.kesulitan,
                                     job.tipe, job.jumlah))
     order = _rank_sentences(an, job.kesulitan, rng)
+    proper = set(an.pools["nama"])
     used: set[int] = set()
     questions: list[dict[str, Any]] = []
-    plan = type_plan(job.tipe, job.jumlah)
+    # Essays first: they need the few definition / cause-effect sentences most.
+    priority = {"esai": 0, "pilihan_ganda": 1, "benar_salah": 2, "isian": 3}
+    plan = sorted(type_plan(job.tipe, job.jumlah), key=priority.__getitem__)
     bs_truth = [True, False] * (job.jumlah // 2 + 1)
     rng.shuffle(bs_truth)
 
@@ -322,38 +414,76 @@ def generate_template(job: QuizJob) -> list[dict[str, Any]]:
                 return i, res
         return None
 
+    def essay(i: int, mode: str):
+        s = an.sentences[i]
+        if mode == "sebab":
+            ce = cause_effect(s)
+            return (txt["esai_why"].format(akibat=ce[0]), ce[1]) if ce else None
+        if mode == "definisi":
+            if i in an.definitions:
+                return txt["esai_def"].format(istilah=an.definitions[i][0]), s
+            return None
+        if job.kesulitan != "mudah" and len(s.split()) >= 10:
+            return txt["esai_general"].format(kalimat=s), s
+        return None
+
+    def pg(i: int):
+        s = an.sentences[i]
+        for t in find_targets(s, i, an):
+            ds = distractors(t, s, an, rng, 3, job.kesulitan)
+            if ds:
+                return t, ds
+        return None
+
+    def bs_false(i: int):
+        s = an.sentences[i]
+        for t in find_targets(s, i, an):
+            ds = distractors(t, s, an, rng, 1, job.kesulitan, strict=True)
+            if ds:
+                return t, _style_options(ds, t, s, proper)[0]
+        return None
+
     for qtype in plan:
         q = None
-        if qtype == "pilihan_ganda":
-            def pg(i: int):
-                s = an.sentences[i]
-                for t in find_targets(s, i, an):
-                    ds = distractors(t, s, an, rng, 3, job.kesulitan)
-                    if ds:
-                        return t, ds
-                return None
+        if qtype == "esai":
+            got = None
+            for mode in ("sebab", "definisi", "umum"):
+                got = take(lambda i, m=mode: essay(i, m))
+                if got:
+                    break
+            if got:
+                i, (stem, key) = got
+                nxt = an.sentences[i + 1] if i + 1 < len(an.sentences) else ""
+                # Definitions/general statements: the next sentence usually elaborates.
+                elaborate = mode != "sebab" and nxt and i + 1 not in used
+                points = key + (f" {nxt}" if elaborate else "")
+                q = {"tipe": qtype, "pertanyaan": stem, "opsi": [], "jawaban": points,
+                     "penjelasan": txt["expl_esai"].format(kalimat=points)}
+        elif qtype == "pilihan_ganda":
             got = take(pg)
             if got:
                 i, (t, ds) = got
                 s = an.sentences[i]
-                options = ds + [t.text]
+                styled = _style_options(ds + [t.text], t, s, proper)
+                answer = styled[-1]
+                options = styled[:]
                 rng.shuffle(options)
-                if i in an.definitions and t.text == an.definitions[i][0] and rng.random() < 0.5:
+                other_defs = [d[1] for j, d in an.definitions.items() if j != i]
+                if (i in an.definitions and t.text == an.definitions[i][0]
+                        and len(other_defs) >= 3 and rng.random() < 0.5):
+                    # Definition question: the answer is the definition itself.
                     term, rest = an.definitions[i]
-                    stem = txt["def_pg"].format(istilah=term)
-                    # Definition question: answer is the definition; distractors = other defs.
-                    other_defs = [d[1] for j, d in an.definitions.items() if j != i]
-                    if len(other_defs) >= 3:
-                        rng.shuffle(other_defs)
-                        options = other_defs[:3] + [rest]
-                        rng.shuffle(options)
-                        q = {"tipe": qtype, "pertanyaan": stem, "opsi": options,
-                             "jawaban": rest, "penjelasan": txt["expl_cloze"].format(kalimat=s)}
-                if q is None:
+                    rng.shuffle(other_defs)
+                    options = other_defs[:3] + [rest]
+                    rng.shuffle(options)
+                    q = {"tipe": qtype, "pertanyaan": txt["def_pg"].format(istilah=term),
+                         "opsi": options, "jawaban": rest,
+                         "penjelasan": txt["expl_cloze"].format(kalimat=s)}
+                else:
                     q = {"tipe": qtype,
                          "pertanyaan": txt["cloze_pg"].format(
                              kalimat=_blank(s, t.text, txt["blank"])),
-                         "opsi": options, "jawaban": t.text,
+                         "opsi": options, "jawaban": answer,
                          "penjelasan": txt["expl_cloze"].format(kalimat=s)}
         elif qtype == "isian":
             got = take(lambda i: (find_targets(an.sentences[i], i, an) or [None])[0])
@@ -361,23 +491,16 @@ def generate_template(job: QuizJob) -> list[dict[str, Any]]:
                 i, t = got
                 s = an.sentences[i]
                 q = {"tipe": qtype,
-                     "pertanyaan": txt["cloze_isian"].format(kalimat=_blank(s, t.text,
-                                                                            txt["blank"])),
+                     "pertanyaan": txt["cloze_isian"].format(
+                         kalimat=_blank(s, t.text, txt["blank"])),
                      "opsi": [], "jawaban": t.text,
                      "penjelasan": txt["expl_cloze"].format(kalimat=s)}
         elif qtype == "benar_salah":
             truth = bs_truth.pop()
-
-            def bs(i: int, truth: bool = truth):
-                if truth:
-                    return ("benar", None)
-                s = an.sentences[i]
-                for t in find_targets(s, i, an):
-                    ds = distractors(t, s, an, rng, 1, job.kesulitan)
-                    if ds:
-                        return ("salah", (t, ds[0]))
-                return None
-            got = take(bs)
+            if truth:
+                got = take(lambda i: ("benar", None))
+            else:
+                got = take(lambda i: ("salah", bs_false(i)) if bs_false(i) else None)
             if got:
                 i, (kind, swap) = got
                 s = an.sentences[i]
@@ -391,32 +514,25 @@ def generate_template(job: QuizJob) -> list[dict[str, Any]]:
                          "pertanyaan": txt["bs_q"].format(kalimat=s.replace(t.text, wrong, 1)),
                          "opsi": [txt["true"], txt["false"]], "jawaban": txt["false"],
                          "penjelasan": txt["expl_false"].format(kalimat=s)}
-        elif qtype == "esai":
-            def es(i: int):
-                s = an.sentences[i]
-                if i in an.definitions:
-                    term, _ = an.definitions[i]
-                    return txt["esai_def"].format(istilah=term), s
-                ce = cause_effect(s)
-                if ce:
-                    return txt["esai_why"].format(akibat=ce[0]), ce[1]
-                if job.kesulitan != "mudah" and len(s.split()) >= 10:
-                    return txt["esai_general"].format(kalimat=s), s
-                return None
-            got = take(es)
-            if got:
-                i, (stem, key) = got
-                nxt = an.sentences[i + 1] if i + 1 < len(an.sentences) else ""
-                points = key + (f" {nxt}" if nxt and i + 1 not in used else "")
-                q = {"tipe": qtype, "pertanyaan": stem, "opsi": [], "jawaban": points,
-                     "penjelasan": txt["expl_esai"].format(kalimat=points)}
-        if q is None:
-            continue
-        questions.append(q)
+        if q is not None:
+            questions.append(q)
     if len(questions) < job.jumlah:
         warn(f"Materi '{job.nama}' hanya cukup untuk {len(questions)} dari {job.jumlah} soal "
              "dengan mesin template. Tambah materi atau gunakan --engine ai.")
     return _number(questions, engine="template")
+
+
+def display_title(job: QuizJob) -> str:
+    """Topic, else the material's first short heading-like line, else the file name."""
+    if job.topik:
+        return job.topik
+    for line in job.materi.splitlines():
+        line = line.strip().lstrip("#").strip()
+        if line:
+            if len(line.split()) <= 8 and not line.endswith((".", "!", "?")):
+                return line
+            break
+    return job.nama.replace("_", " ").replace("-", " ").strip().title()
 
 
 def _number(questions: list[dict[str, Any]], engine: str) -> list[dict[str, Any]]:
@@ -518,7 +634,7 @@ def _md_soal(job: QuizJob, qs: list[dict], engine: str) -> str:
     lang = job.bahasa
     title = "Soal" if lang == "id" else "Quiz"
     head = " — ".join(x for x in (job.mapel, job.jenjang) if x)
-    lines = [f"# {title}: {job.topik or job.nama}" + (f" ({head})" if head else ""), ""]
+    lines = [f"# {title}: {display_title(job)}" + (f" ({head})" if head else ""), ""]
     lines += (["Nama: ____________________  Kelas: ________  Tanggal: __________", ""]
               if lang == "id" else ["Name: ____________________  Class: ________  Date: ______",
                                     ""])
@@ -547,7 +663,7 @@ def _md_soal(job: QuizJob, qs: list[dict], engine: str) -> str:
 def _md_kunci(job: QuizJob, qs: list[dict]) -> str:
     lang = job.bahasa
     title = "Kunci Jawaban" if lang == "id" else "Answer Key"
-    lines = [f"# {title}: {job.topik or job.nama}", ""]
+    lines = [f"# {title}: {display_title(job)}", ""]
     for q in qs:
         ans = f"{q['kunci']}. {q['jawaban']}" if q["kunci"] else q["jawaban"]
         label = "Penjelasan" if lang == "id" else "Explanation"

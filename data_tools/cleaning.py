@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import numbers
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -161,7 +162,7 @@ def _parse_series(values: list[Any], parser) -> tuple[list[Any], int]:
 
 def _date_parser(dayfirst: bool, allow_serial: bool):
     def parse(v):
-        if isinstance(v, (int, float)) and not isinstance(v, bool):
+        if isinstance(v, numbers.Real) and not isinstance(v, bool):
             if allow_serial and 20000 <= float(v) <= 80000:  # Excel serial date
                 return pd.Timestamp("1899-12-30") + pd.Timedelta(days=float(v))
             return None
