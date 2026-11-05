@@ -181,7 +181,8 @@ def html_table(title: str, df: pd.DataFrame, money: set[str] | None = None,
         for row in shown.itertuples(index=False, name=None)
     ]
     return {
-        "title": title, "columns": [str(c) for c in df.columns], "rows": rows,
+        "title": title, "columns": [str(c).replace("_", " ").capitalize() for c in df.columns],
+        "rows": rows,
         "numeric": numeric, "truncated": max(0, len(df) - limit),
     }
 

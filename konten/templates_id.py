@@ -155,11 +155,10 @@ SOSMED: dict[str, dict[str, Any]] = {
                     "1. Cek kualitas bahan dan prosesnya.\n"
                     "2. Baca ulasan pembeli lain dengan teliti.\n"
                     "3. Sesuaikan dengan kebutuhan dan budget {kamu}.\n\n"
-                    "Di {brand}, kami fokus pada satu hal penting: {keunggulan}."),
+                    "Nilai plus dari {brand}: {keunggulan}."),
                     ("Mitos: {niche} berkualitas pasti mahal.\n"
                     "Fakta: yang paling penting adalah kualitas dan kecocokan dengan kebutuhan "
-                    "{kamu}.\n\n{Produk} dari {brand} hadir dengan {keunggulan} — tanpa {bikin} "
-                    "kantong jebol."),
+                    "{kamu}.\n\nDi {brand}, {produk} hadir dengan nilai plus: {keunggulan}."),
                     ("Kalau {kamu} sering {masalah}, mulai dari langkah kecil:\n\n"
                     "✔ Kenali dulu kebutuhan utama {kamu}.\n"
                     "✔ Pilih {niche} yang sudah jelas kualitasnya.\n"
@@ -185,6 +184,10 @@ SOSMED: dict[str, dict[str, Any]] = {
                     "di tengah."),
                     "Foto flat-lay {produk} dengan teks overlay berisi 3 poin tips.",
                 ],
+                "pasangan": {0: {"hook": [0], "visual": [0], "topik": [0]},
+                             1: {"hook": [2], "visual": [1], "topik": [1]},
+                             2: {"hook": [3], "topik": [3]},
+                             3: {"hook": [6], "topik": [2]}},
                 "cta": ["Simpan postingan ini dan bagikan ke teman yang butuh {e}",
                         "Ada pertanyaan? Tulis di kolom komentar, kami jawab satu per satu.",
                         "Follow {brand} untuk tips {niche} lainnya."],
@@ -197,7 +200,7 @@ SOSMED: dict[str, dict[str, Any]] = {
                     "{Promo}! Jangan sampai kelewatan {e}",
                     "Kenalan dulu sama {produk}, favorit pelanggan {brand} {e}",
                     "Cari {niche} yang bisa diandalkan? Ini jawabannya.",
-                    "Alasan {produk} selalu jadi incaran: {keunggulan} {e}",
+                    "Kenapa {produk} selalu jadi incaran? {e}",
                     "Stok terbatas! {Produk} siap menemani hari {kamu}.",
                     "Buat {audiens}, ini rekomendasi dari {brand}.",
                 ],
@@ -222,6 +225,8 @@ SOSMED: dict[str, dict[str, Any]] = {
                     "Video 10 detik unboxing {produk} dengan transisi cepat dan teks promo.",
                     "Foto {produk} dipakai/dinikmati pelanggan dalam suasana sehari-hari.",
                 ],
+                "pasangan": {0: {"topik": [1]}, 1: {"topik": [1]}, 2: {"hook": [0]},
+                             3: {"hook": [0]}},
                 "cta": ["Order sekarang, {link_cta} {e}", "Chat admin untuk pesan, {link_cta}.",
                         "Checkout sebelum promonya berakhir, {link_cta}."],
             },
@@ -239,15 +244,16 @@ SOSMED: dict[str, dict[str, Any]] = {
                 "body": [
                     ("Setiap {produk} melewati beberapa tahap sebelum sampai di tangan {kamu}: "
                     "pemilihan bahan, proses pembuatan, pengecekan kualitas, lalu packing yang "
-                    "rapi.\n\nItu cara kami menjaga {keunggulan}."),
+                    "rapi.\n\nSemua demi kualitas yang konsisten untuk {kamu}."),
                     ("Di balik layar {brand}, ada tim kecil yang memastikan setiap pesanan dikemas "
-                    "dengan teliti. Prinsip kami sederhana: {keunggulan}."),
+                    "dengan teliti. Prinsip kami sederhana: setiap pesanan harus sampai dalam "
+                    "kondisi terbaik."),
                     ("Banyak yang tanya, kenapa {produk} bisa konsisten? Jawabannya ada di proses. "
                     "Kami cek ulang setiap tahap supaya {kamu} dapat yang terbaik."),
                 ],
                 "pendek": [
                     ("Di balik setiap {produk}: pilih bahan, proses, cek kualitas, packing rapi. "
-                    "Itu cara kami menjaga {keunggulan}."),
+                    "Semua demi kualitas yang konsisten."),
                     "Tim kecil {brand} mengecek setiap pesanan sebelum dikirim ke {kamu}.",
                 ],
                 "visual": [
@@ -255,6 +261,9 @@ SOSMED: dict[str, dict[str, Any]] = {
                     "Foto candid tim {brand} sedang bekerja, teks overlay 'Di balik layar'.",
                     "Carousel urutan proses: bahan → produksi → quality control → siap kirim.",
                 ],
+                "pasangan": {0: {"hook": [0, 2, 3], "visual": [0, 2], "topik": [0]},
+                             1: {"hook": [1, 4], "visual": [1], "topik": [1, 2]},
+                             2: {"hook": [0, 3], "visual": [0, 2], "topik": [0]}},
                 "cta": ["Mau lihat proses lainnya? Tulis 'MAU' di komentar {e}",
                         "Follow {brand} biar {nggak} ketinggalan cerita di balik layar.",
                         "Penasaran hasilnya? {Link_cta}."],
@@ -262,20 +271,21 @@ SOSMED: dict[str, dict[str, Any]] = {
             "testimoni": {
                 "label": "Bukti Sosial",
                 "topik": ["Ulasan pelanggan {produk}", "Repost konten pelanggan",
-                          "Rangkuman ulasan bulan ini"],
+                          "Rangkuman ulasan bulan ini", "Ajakan berbagi ulasan"],
                 "hook": [
                     "Kata mereka yang sudah mencoba {produk} {e}",
                     "Ulasan jujur pelanggan {brand} minggu ini.",
                     "Ini yang {bikin} kami semangat setiap hari {e}",
                     "Dari pelanggan, untuk calon pelanggan {e}",
+                    "Sudah coba {produk}? Kami mau dengar cerita {kamu} {e}",
                 ],
                 "body": [
                     ("“[Tempel kutipan ulasan asli pelanggan di sini]”\n— [nama/inisial pelanggan, "
                     "dengan izin]\n\nTerima kasih sudah percaya pada {brand}! Ulasan seperti ini "
-                    "yang membuat kami terus menjaga {keunggulan}."),
+                    "yang membuat kami terus semangat melayani."),
                     ("Kami kumpulkan beberapa ulasan pelanggan tentang {produk} "
-                    "[tempel screenshot ulasan asli]. Hal yang paling sering disebut: "
-                    "{keunggulan}."),
+                    "[tempel screenshot ulasan asli]. Terima kasih untuk setiap masukan, baik "
+                    "pujian maupun kritik!"),
                     ("Sudah pakai {produk}? Ceritakan pengalaman {kamu} di kolom komentar — ulasan "
                     "terbaik akan kami tampilkan di sini (dengan izin)."),
                 ],
@@ -287,7 +297,12 @@ SOSMED: dict[str, dict[str, Any]] = {
                     "Screenshot ulasan asli (sensor data pribadi) di atas latar warna brand.",
                     ("Repost foto/video pelanggan (minta izin dulu) dengan bingkai bertuliskan "
                     "'Kata Mereka'."),
+                    ("Foto {produk} dengan teks besar 'Ceritakan pengalamanmu!' + stiker "
+                    "pertanyaan di Story."),
                 ],
+                "pasangan": {0: {"hook": [0, 1, 2, 3], "visual": [0, 1], "topik": [0, 1]},
+                             1: {"hook": [0, 1, 2, 3], "visual": [0], "topik": [0, 2]},
+                             2: {"hook": [4], "visual": [2], "topik": [3]}},
                 "cta": ["Bagikan pengalamanmu dan tag {brand} {e}",
                         "Mau merasakan sendiri? {Link_cta}.",
                         "Tulis ulasan {kamu} di komentar, kami tunggu!"],
@@ -295,7 +310,7 @@ SOSMED: dict[str, dict[str, Any]] = {
             "interaksi": {
                 "label": "Interaksi & Engagement",
                 "topik": ["Polling pilihan produk", "Pertanyaan untuk audiens",
-                          "Tebak-tebakan seputar {niche}"],
+                          "Isi titik-titik bareng audiens"],
                 "hook": [
                     "Tim mana {nih}: {produk} atau {produk2}? {e}",
                     "Jujur-jujuran: kapan terakhir kali {kamu} {masalah}?",
@@ -311,6 +326,8 @@ SOSMED: dict[str, dict[str, Any]] = {
                     "Tulis di komentar, semua masukan kami baca."),
                     ("Hampir semua orang pernah {masalah}. Ceritakan pengalaman {kamu} di komentar, "
                     "siapa tahu cerita {kamu} membantu orang lain."),
+                    ("Jawaban kami jelas: {produk} {e}\n\nKalau {kamu}? Tulis jawaban {kamu} di "
+                    "kolom komentar ya!"),
                 ],
                 "pendek": [
                     "{Produk} atau {produk2}? Balas dengan A atau B!",
@@ -321,6 +338,9 @@ SOSMED: dict[str, dict[str, Any]] = {
                     "Story Instagram dengan stiker polling/kuis, lalu repost hasilnya ke feed.",
                     "Teks besar di latar polos berisi pertanyaan, font tebal warna brand.",
                 ],
+                "pasangan": {0: {"hook": [0, 4], "visual": [0], "topik": [0]},
+                             1: {"hook": [3], "topik": [1]}, 2: {"hook": [1], "topik": [1]},
+                             3: {"hook": [2], "topik": [2]}},
                 "cta": ["Jawab di kolom komentar {e}", "Tag teman yang pilihannya pasti beda!",
                         "Vote sekarang, hasilnya kami umumkan minggu depan."],
             },
@@ -337,8 +357,7 @@ SOSMED: dict[str, dict[str, Any]] = {
                 "body": [
                     ("{Brand} lahir dari keinginan sederhana: menghadirkan {niche} yang bisa "
                     "diandalkan untuk {audiens}. Dari situ kami belajar, jatuh-bangun, dan terus "
-                    "memperbaiki diri.\n\nSampai hari ini, kami tetap memegang satu janji: "
-                    "{keunggulan}."),
+                    "memperbaiki diri.\n\nSalah satu hal yang terus kami jaga: {keunggulan}."),
                     ("Kami percaya usaha kecil bisa memberi dampak besar. Setiap pesanan dari "
                     "{kamu} membantu tim lokal kami terus berkarya.\n\nTerima kasih sudah menjadi "
                     "bagian dari perjalanan {brand}."),
@@ -347,7 +366,7 @@ SOSMED: dict[str, dict[str, Any]] = {
                 ],
                 "pendek": [
                     ("{Brand} lahir dari ide sederhana: {niche} yang bisa diandalkan. "
-                    "Janji kami: {keunggulan}."),
+                    "Yang terus kami jaga: {keunggulan}."),
                     ("Setiap pesanan dari {kamu} membantu tim lokal {brand} terus berkarya. "
                     "Terima kasih!"),
                 ],
@@ -356,6 +375,8 @@ SOSMED: dict[str, dict[str, Any]] = {
                     "Video pendek founder bercerita 30 detik, latar tempat usaha.",
                     "Kutipan inspiratif dengan tipografi bersih dan logo {brand}.",
                 ],
+                "pasangan": {0: {"hook": [0, 1, 2], "visual": [0], "topik": [0, 1]},
+                             1: {"hook": [3], "topik": [1]}, 2: {"hook": [1, 3], "topik": [2]}},
                 "cta": ["Dukung produk lokal dengan follow {brand} {e}",
                         "Ceritakan perjalanan usaha {kamu} di komentar!",
                         "Bagikan jika cerita ini relate dengan {kamu}."],
@@ -366,7 +387,7 @@ SOSMED: dict[str, dict[str, Any]] = {
                 "hook": [
                     "POV: akhirnya nemu {niche} yang pas di hati {e}",
                     "Tanda-tanda {kamu} butuh {produk} sekarang juga {e}",
-                    "Ekspektasi vs realita saat {masalah} {e}",
+                    "Ekspektasi vs realita {e}",
                     "Siapa di sini yang {masalah}? Ngaku aja {e}",
                 ],
                 "body": [
@@ -386,6 +407,8 @@ SOSMED: dict[str, dict[str, Any]] = {
                     "Meme format 'ekspektasi vs realita' dengan foto {produk} di panel akhir.",
                     "Video POV pakai sound yang sedang tren, teks di layar mengikuti ketukan.",
                 ],
+                "pasangan": {0: {"hook": [1]}, 1: {"hook": [2], "visual": [0]},
+                             2: {"hook": [3]}},
                 "cta": ["Tag teman yang paling relate {e}",
                         "Share ke grup bestie kamu!", "Follow buat konten receh lainnya {e}"],
             },
@@ -412,9 +435,9 @@ SOSMED: dict[str, dict[str, Any]] = {
             "testimoni": ["tampilkan ulasan asli pelanggan (screenshot/video, dengan izin)",
                           "tunjukkan {produk} yang diulas",
                           "ucapkan terima kasih ke pelanggan"],
-            "interaksi": ["tampilkan pilihan A dan B bergantian",
+            "interaksi": ["tampilkan pertanyaan dengan teks besar di layar",
                           "ajak penonton menjawab di komentar",
-                          "janjikan hasil polling di video berikutnya"],
+                          "janjikan jawaban terbaik dibahas di video berikutnya"],
             "cerita": ["ceritakan momen awal {brand} dengan foto lama",
                        "tunjukkan kondisi sekarang",
                        "sampaikan nilai yang dipegang: {keunggulan}"],
@@ -428,7 +451,7 @@ SOSMED: dict[str, dict[str, Any]] = {
                                "harga yang bersahabat"],
         "default_masalah": ["bingung memilih {niche} yang pas", "takut salah beli"],
         "generic_tags": {
-            "instagram": ["umkmindonesia", "produklokal", "bisnisonline", "banggabuatanindonesia"],
+            "instagram": ["umkmindonesia", "produklokal", "banggabuatanindonesia"],
             "tiktok": ["fyp", "tiktokshop"],
             "linkedin": ["UMKM", "BisnisIndonesia", "Pemasaran"],
             "x": [],
@@ -456,6 +479,7 @@ SOSMED: dict[str, dict[str, Any]] = {
                            "At {brand}: {keunggulan}.")],
                 "visual": [("5-slide carousel: hook on slide 1, one tip per slide, CTA on the "
                            "last slide."), "Flat-lay photo of {produk} with 3 tips as overlay."],
+                "pasangan": {0: {"hook": [0]}, 1: {"hook": [2]}},
                 "cta": ["Save this post and share it with a friend {e}",
                         "Questions? Drop them in the comments."],
             },
@@ -505,6 +529,7 @@ SOSMED: dict[str, dict[str, Any]] = {
                          "comments.")],
                 "pendek": ["{Produk} or {produk2}? Reply A or B!"],
                 "visual": ["Split-screen image of two products with big A and B letters."],
+                "pasangan": {0: {"hook": [0], "visual": [0]}, 1: {"hook": [1]}},
                 "cta": ["Answer in the comments {e}"],
             },
             "cerita": {
